@@ -1,5 +1,5 @@
 import pytest
-from docs.kriptografi.classic_cipher import affine_decrypt, affine_encrypt
+from docs.kriptografi.pekan2.classic_cipher import affine_decrypt, affine_encrypt
 
 
 # Uji 1: Skenario Normal (Enkripsi & Dekripsi)

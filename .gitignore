@@ -7,7 +7,7 @@ target/
 
 # Mengabaikan folder konfigurasi Visual Studio IDE
 .vs/
-
+.vscode
 
 .pytest_cache
 __pycache__

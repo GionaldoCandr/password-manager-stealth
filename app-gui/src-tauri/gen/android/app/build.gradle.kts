@@ -55,9 +55,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
     buildFeatures {
-        buildConfig = true
+        buildConfig = true  
     }
+
+
+
+
 }
+
 
 kotlin {
     compilerOptions {

@@ -8,6 +8,9 @@ target/
 # Mengabaikan folder konfigurasi Visual Studio IDE
 .vs/
 
+.pytest_cache
+__pycache__
+
 # Mengabaikan data lokal / database pengujian / file log
 *.dat
 *.log

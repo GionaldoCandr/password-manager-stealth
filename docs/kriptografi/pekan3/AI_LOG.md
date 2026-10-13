@@ -8,6 +8,7 @@
 ---
 
 ## Log Aktivitas
+![gambar](image.png)
 
 ### 1. Perancangan Komponen Utama AES-256-GCM
 - **Alat AI:** Gemini 1.5 Pro

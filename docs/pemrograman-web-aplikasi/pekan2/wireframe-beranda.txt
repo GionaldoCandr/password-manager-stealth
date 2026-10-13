@@ -1,0 +1,36 @@
+=====================================================
+WIREFRAME 3: BERANDA / DASHBOARD STEALTH VAULT
+=====================================================
+
+[ Mobile / Android View (< 768px - AppMobile.jsx) ]
+-----------------------------------------------------
+[HEADER: Logo + Icon Shield + Button "Scan QR PC" + Logout]
+-----------------------------------------------------
+[STATUS BAR: PC Terpasang (IP:Port) + Button "Sync Manual"]
+-----------------------------------------------------
+[MAIN CONTENT]
+  - Form Input Cepat: + Tambah / Edit Password
+  - List Kredensial Tersimpan (1 Kolom):
+    - Site / Application Name
+    - Username & Masked Password (••••••••)
+    - Action Buttons: Show Pass, Copy, Edit, Delete
+-----------------------------------------------------
+[MODAL]: QrScannerModal (Untuk Scan Pairing QR Code)
+
+
+[ Desktop / PC View (>= 768px - AppPC.jsx) ]
+-----------------------------------------------------
+[HEADER: Logo + Button "Refresh Data" + "Pairing PC" + Theme Switcher (Dark/Light/System)]
+-----------------------------------------------------
+[SUBHEADER: Timer Auto-Lock Inactivity (180s) + Ekspor/Impor JSON + Button Kunci]
+-----------------------------------------------------
+[MAIN CONTENT]
+  1. [CARD ANALYTICS]: Skor Kesehatan Vault (100/100) | Password Lemah | Password Duplikat
+  2. [CARD SECURITY SETTINGS]: Ubah Master Password & Ubah Alias Win+R
+  3. [FORM INPUT]: Layanan, Username, Password, Kategori + Button "Generate" + "Simpan"
+  4. [FILTER & SEARCH]: Input Search Bar + Pill Buttons Kategori (Semua, Kampus, Pekerjaan, Sosmed, Keuangan, Lainnya)
+  5. [TABLE VAULT ITEMS]:
+     - Columns: Site | Category | Username | Password (Mask/Unmask) | Actions (Copy, Edit, Hapus, Riwayat)
+-----------------------------------------------------
+[MODAL 1]: Mobile P2P Sync QR Pairing (Displays SVG QR & IP:Port)
+[MODAL 2]: Riwayat Password (History 5 Versi Terakhir)

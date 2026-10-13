@@ -1,0 +1,42 @@
+=====================================================================
+WIREFRAME 1 INSTALLER: DYNAMIC SETUP WIZARD (main_2.rs)
+=====================================================================
+
+[ TAMPILAN KONSOL / CLI TERMINAL WINDOWS ]
+---------------------------------------------------------------------
+  ██████╗████████╗███████╗ █████╗ ██╗  ████████╗██╗  ██╗
+ ██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║  ╚══██╔══╝██║  ██║
+ ╚█████╗    ██║   █████╗  ███████║██║     ██║   ███████║
+  ╚═══██╗   ██║   ██╔══╝  ██╔══██║██║     ██║   ██╔══██║
+ ██████╔╝   ██║   ███████╗██║  ██║███████╗██║   ██║  ██║
+ ╚═════╝    ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝   ╚═╝  ╚═╝
+           STEALTH VAULT - DYNAMIC SETUP WIZARD
+
+---------------------------------------------------------------------
+ [!] Selamat datang di installer Stealth Password Manager.
+ [!] Konfigurasi ini akan memasang vault tanpa jejak di disk.
+---------------------------------------------------------------------
+
+[ TAHAP 1: INPUT INTERAKTIF ALIAS WIN + R ]
+> Masukkan kata kunci panggilan Win + R (Default: RunPass): [ ____________ ]
+[+] Alias terkonfigurasi: <USER_INPUT / RunPass>
+
+[ TAHAP 2: MENULIS PAYLOAD TERENKRIPSI ]
+[1/3] Menuliskan payload terenkripsi ke direktori tersembunyi...
+      -> Target: %LOCALAPPDATA%\Microsoft\SystemCache\win_service_host.exe (Launcher)
+      -> Target: %LOCALAPPDATA%\Microsoft\SystemCache\app-gui.exe (GUI App)
+
+[ TAHAP 3: INJEKSI REGISTRY WINDOWS ]
+[2/3] Mendaftarkan kata kunci '<USER_INPUT>' ke Windows Registry...
+      -> Subkey: HKCU\Software\Microsoft\Windows\CurrentVersion\App Paths\<USER_INPUT>.exe
+      -> Value: %LOCALAPPDATA%\Microsoft\SystemCache\win_service_host.exe
+
+=====================================================================
+ [SUCCESS] Pemasangan Stealth Vault Berhasil!
+ [INFO] Kamu bisa menekan [Win + R], ketik '<USER_INPUT>', lalu Enter.
+=====================================================================
+
+[ TAHAP 4: ANTI-FORENSIC SELF-DELETION ]
+[3/3] Membersihkan installer ini dari memori dan disk...
+      -> Triggering CMD Background Execution: `timeout /t 2 /nobreak > NUL & del "installer.exe"`
+---------------------------------------------------------------------

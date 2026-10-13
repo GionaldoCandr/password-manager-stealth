@@ -1,0 +1,50 @@
+=====================================================================
+WIREFRAME 2 LAUNCHER: CLI BRIDGE & WIN+R GATEWAY (main_3.rs)
+=====================================================================
+
+---------------------------------------------------------------------
+ALUR 1: MODE INTERAKTIF KONSOL (Dipanggil Pengguna via Win + R)
+---------------------------------------------------------------------
+[ TAMPILAN KONSOL / CLI TERMINAL WINDOWS ]
+
+==================================================
+    STEALTH LAUNCHER - CLI PASSWORD MANAGER       
+==================================================
+
+Masukkan Master Password: [ ************ ]
+
+---------------------------------------------------------------------
+[ Skenario A: Autentikasi Berhasil ]
+---------------------------------------------------------------------
+[SUCCESS] Autentikasi Berhasil! Membuka Stealth GUI...
+
+* Tindakan Sistem:
+  - Membaca master password dari %LOCALAPPDATA%\Microsoft\SystemCache\vault_store.bin
+  - Memverifikasi input pengguna dengan data terenkripsi.
+  - Membuka biner GUI utama (%LOCALAPPDATA%\Microsoft\SystemCache\app-gui.exe).
+
+---------------------------------------------------------------------
+[ Skenario B: Autentikasi Gagal ]
+---------------------------------------------------------------------
+[ERROR] Master Password salah! Akses ditolak.
+
+Tekan Enter untuk keluar... [ ENTER ]
+
+* Tindakan Sistem:
+  - Menghentikan proses dan menutup jendela konsol tanpa membuka GUI.
+
+
+---------------------------------------------------------------------
+ALUR 2: MODE BACKGROUND / HEADLESS (Dipanggil oleh Browser Extension)
+---------------------------------------------------------------------
+[ Pemicu Execution Flag: --background-sync ]
+
+* Tampilan Layar:
+  - Tidak ada UI/Konsol yang muncul (Silent / Headless Execution).
+
+* Tindakan Sistem:
+  - Mendeteksi argumen `--background-sync`.
+  - Menjalankan biner GUI secara otomatis di latar belakang dengan flag:
+    `app-gui.exe --headless-listener`
+  - Membuka port HTTP listener lokal (14201) untuk menerima data sync dari Chrome Extension.
+---------------------------------------------------------------------

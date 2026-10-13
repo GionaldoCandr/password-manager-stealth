@@ -1,0 +1,51 @@
+=====================================================================
+WIREFRAME EXTENSION: STEALTH VAULT ASSISTANT
+=====================================================================
+
+---------------------------------------------------------------------
+1. INJECTED FLOATING MODAL (content.js - Di Atas Halaman Web Target)
+---------------------------------------------------------------------
+   [ Lokasi: Top-Right (top: 20px, right: 20px) ]
+   +-------------------------------------------------------+
+   | 🔒 Stealth Vault Assistant                           |
+   |                                                       |
+   | Simpan akun baru untuk example.com?                  |
+   | +---------------------------------------------------+ |
+   | | User: user@example.com                            | |
+   | | Pass: ••••••••••••                                | |
+   | +---------------------------------------------------+ |
+   |                                                       |
+   | [ Ya, Simpan ]                       [ Abaikan ]      |
+   +-------------------------------------------------------+
+   * Catatan: Klik "Ya, Simpan" akan memicu pesan chrome.runtime 
+     ke background.js (SAVE_PENDING_DATA) dan menyimpan ke storage.local.
+
+
+---------------------------------------------------------------------
+2. TOOLBAR POPUP WINDOW (popup.html & popup.js - Width: 280px)
+---------------------------------------------------------------------
+
+   [ Kondisi A: Tidak Ada Data Pending ]
+   +-------------------------------------------------------+
+   | 🔒 Vault Sync Handshake                               |
+   |                                                       |
+   |    Tidak ada data akun baru yang menunggu konfirmasi. |
+   +-------------------------------------------------------+
+
+   [ Kondisi B: Ada Data Pending ]
+   +-------------------------------------------------------+
+   | 🔒 Vault Sync Handshake                               |
+   |                                                       |
+   | +---------------------------------------------------+ |
+   | | Akun Siap Disimpan:                               | |
+   | | example.com (user@example.com)                    | |
+   | +---------------------------------------------------+ |
+   |                                                       |
+   | [ Input: Token Alias Win+R (mis: RunPass)         ] |
+   | [ Input: Master Password                          ] |
+   |                                                       |
+   | [ Otorisasi & Simpan ke Desktop                     ] |
+   +-------------------------------------------------------+
+   * Catatan: Klik Otorisasi mengirimkan HTTP POST Payload
+     ke Local Listener Desktop (http://127.0.0.1:14201/sync-pass).
+---------------------------------------------------------------------

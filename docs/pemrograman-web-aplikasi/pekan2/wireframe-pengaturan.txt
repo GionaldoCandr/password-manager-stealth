@@ -1,0 +1,31 @@
+=====================================================
+WIREFRAME 4: PENGATURAN STEALTH & REGISTRY (/pengaturan)
+=====================================================
+
+[ Desktop View ]
+-----------------------------------------------------
+<SECTION: Keamanan Master Password>
+  (H3) Ubah Master Password Vault
+  <FORM onSubmit={handleChangeMaster}>
+    <INPUT type="password" placeholder="Master Pass Lama" required>
+    <INPUT type="password" placeholder="Master Pass Baru" required>
+    <PRIMARYBUTTON type="submit">Simpan Baru</PRIMARYBUTTON>
+  </FORM>
+</SECTION>
+
+<SECTION: Injeksi Windows Registry (App Paths)>
+  (H3) Ubah Kata Kunci Alias (Win + R)
+  <P>Mengubah nama ini akan memperbarui registry HKCU\Software\...\App Paths</P>
+  <FORM onSubmit={handleChangeAlias}>
+    <INPUT type="text" value={currentAlias} placeholder="misal: RunPass">
+    <PRIMARYBUTTON type="submit">Terapkan Alias Win+R</PRIMARYBUTTON>
+  </FORM>
+</SECTION>
+
+<SECTION: Backup & Data Vault>
+  <BUTTON onClick={handleExportJson}>💾 Ekspor JSON</BUTTON>
+  <LABEL class="file-upload">
+    📥 Impor JSON
+    <INPUT type="file" accept=".json" onChange={handleImportJson}>
+  </LABEL>
+</SECTION>

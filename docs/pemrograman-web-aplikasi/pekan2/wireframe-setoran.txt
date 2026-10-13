@@ -1,0 +1,40 @@
+=====================================================
+WIREFRAME 5: FORMULIR KREDENSIAL VAULT (/setoran)
+=====================================================
+
+[ Desktop & Mobile ]
+-----------------------------------------------------
+<FORM onSubmit={handleAddItem / handleSaveItem}>
+  <FIELDSET: Informasi Akun>
+    <LABEL for="site">Situs / Aplikasi</LABEL>
+    <INPUT id="site" placeholder="misal: Portal UPER" required>
+
+    <LABEL for="username">Username / Email</LABEL>
+    <INPUT id="username" placeholder="misal: gionaldocandrawansah@gmail.com" required>
+  </FIELDSET>
+
+  <FIELDSET: Keamanan Kata Sandi>
+    <LABEL for="password">Password</LABEL>
+    <DIV class="input-group">
+      <INPUT id="password" type="password" required>
+      <BUTTON type="button" onClick={handleGeneratePassword}>🎲 Generate (16 Karakter)</BUTTON>
+    </DIV>
+    <COMPONENT: PasswordStrengthMeter (Bar visual indikator)>
+  </FIELDSET>
+
+  <FIELDSET: Pengelompokan>
+    <LABEL for="category">Kategori</LABEL>
+    <SELECT id="category">
+      <OPTION value="Kampus">Kampus</OPTION>
+      <OPTION value="Pekerjaan">Pekerjaan</OPTION>
+      <OPTION value="Sosmed">Sosmed</OPTION>
+      <OPTION value="Keuangan">Keuangan</OPTION>
+      <OPTION value="Lainnya">Lainnya</OPTION>
+    </SELECT>
+  </FIELDSET>
+
+  <DIV class="action-buttons">
+    <PRIMARYBUTTON type="submit">+ Simpan & Sync P2P</PRIMARYBUTTON>
+    <BUTTON type="button" onClick={resetForm}>Batal</BUTTON>
+  </DIV>
+</FORM>

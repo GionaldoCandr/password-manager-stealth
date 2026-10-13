@@ -1,9 +1,14 @@
-# Mengabaikan hasil kompilasi Rust (Termasuk folder target/debug yang 7 GB+)
+# Mengabaikan hasil kompilasi Rust dan Android
 target/
 **/target/
-
-# Mengabaikan semua hasil build Android (Folder intermediates)
-**/src-tauri/gen
-
-# Mengabaikan dependensi Node.js (Jika ada)
+**/src-tauri/gen/android/app/build/
+**/src-tauri/gen/android/.gradle/
 **/node_modules/
+
+# Mengabaikan folder konfigurasi Visual Studio IDE
+.vs/
+
+# Mengabaikan data lokal / database pengujian / file log
+*.dat
+*.log
+storage-parts/

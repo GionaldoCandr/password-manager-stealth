@@ -1,0 +1,26 @@
+[package]
+name = "password-manager-stealth"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [
+    "app-gui/src-tauri"
+]
+
+[[bin]]
+name = "launcher"
+path = "launcher/src/main.rs"
+
+[[bin]]
+name = "smart_installer"
+path = "installer/src/main.rs"
+
+[dependencies]
+winreg = "0.55"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.8.5"
+
+[build-dependencies]
+winres = "0.1"

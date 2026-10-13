@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 280px;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #1e1e2e;
+      color: #cdd6f4;
+      padding: 15px;
+      margin: 0;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      border: 1px solid #45475a;
+      background-color: #313244;
+      color: #fff;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 8px;
+      background-color: #89b4fa;
+      color: #11111b;
+      font-weight: bold;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .pending-box {
+      background: #313244;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h3 style="margin-top: 0;">🔒 Vault Sync Handshake</h3>
+  
+  <div id="pending-container" style="display: none;">
+    <div class="pending-box">
+      <strong>Akun Siap Disimpan:</strong>
+      <div id="pending-site"></div>
+    </div>
+
+    <input type="text" id="winr-token" placeholder="Masukkan Token Alias Win+R (mis: RunPass)" />
+    <input type="password" id="master-pass" placeholder="Masukkan Master Password" />
+    <button id="sync-btn">Otorisasi & Simpan ke Desktop</button>
+  </div>
+
+  <div id="no-pending" style="font-size: 13px; color: #a6adc8; text-align: center;">
+    Tidak ada data akun baru yang menunggu konfirmasi.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+[package]
+name = "smart_installer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+argon2 = "0.5"
+aes-gcm = "0.10"
+rand = "0.8"
+winreg = "0.55"
+[build-dependencies]
+winres = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_Storage_FileSystem",
+    "Win32_System_Registry",
+    "Win32_Foundation"
+] }

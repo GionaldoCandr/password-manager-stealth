@@ -1,0 +1,9 @@
+# Mengabaikan hasil kompilasi Rust (Termasuk folder target/debug yang 7 GB+)
+target/
+**/target/
+
+# Mengabaikan semua hasil build Android (Folder intermediates)
+**/src-tauri/gen
+
+# Mengabaikan dependensi Node.js (Jika ada)
+**/node_modules/

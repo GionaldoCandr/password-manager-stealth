@@ -1,19 +1,30 @@
-// Listener untuk mendeteksi penyerahan form (Submit) pada halaman web
-document.addEventListener("submit", function (e) {
-  const form = e.target;
-  const passwordInput = form.querySelector('input[type="password"]');
-  const textInput = form.querySelector('input[type="text"], input[type="email"]');
+// ==========================================================================
+// Stealth Vault Assistant - Content Script
+// DOM Form Submit Detection, Save Confirmation Modal, & Smart Autofill
+// ==========================================================================
 
-  if (passwordInput && passwordInput.value) {
-    const site = window.location.hostname;
-    const username = textInput ? textInput.value : "Unknown User";
-    const password = passwordInput.value;
+// 1. Listener untuk mendeteksi penyerahan form (Submit) pada halaman web
+document.addEventListener(
+  "submit",
+  function (e) {
+    const form = e.target;
+    if (!form || !form.querySelector) return;
 
-    showFloatingSaveModal(site, username, password);
-  }
-}, true);
+    const passwordInput = form.querySelector('input[type="password"]');
+    const textInput = form.querySelector('input[type="text"], input[type="email"], input[name*="user"], input[name*="email"]');
 
-// Menampilkan UI Board Melayang untuk Konfirmasi Simpan
+    if (passwordInput && passwordInput.value) {
+      const site = window.location.hostname;
+      const username = textInput && textInput.value ? textInput.value : "Unknown User";
+      const password = passwordInput.value;
+
+      showFloatingSaveModal(site, username, password);
+    }
+  },
+  true
+);
+
+// 2. Menampilkan UI Board Melayang untuk Konfirmasi Simpan
 function showFloatingSaveModal(site, username, password) {
   if (document.getElementById("stealth-vault-modal")) return;
 
@@ -23,43 +34,64 @@ function showFloatingSaveModal(site, username, password) {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 999999;
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-    border: 2px solid #89b4fa;
-    border-radius: 10px;
+    z-index: 2147483647;
+    background-color: #0f172a;
+    color: #f8fafc;
+    border: 2px solid #38bdf8;
+    border-radius: 14px;
     padding: 16px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    font-family: 'Segoe UI', sans-serif;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     max-width: 320px;
+    animation: slideInStealth 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   `;
 
   modal.innerHTML = `
-    <h4 style="margin: 0 0 8px 0; color: #89b4fa;">🔒 Stealth Vault Assistant</h4>
-    <p style="margin: 0 0 12px 0; font-size: 13px;">Simpan akun baru untuk <b>${site}</b>?</p>
-    <div style="font-size: 12px; margin-bottom: 12px; background: #313244; padding: 8px; border-radius: 5px;">
-      <div><b>User:</b> ${username}</div>
-      <div><b>Pass:</b> ••••••••••••</div>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 16px;">🔒</span>
+        <strong style="color: #38bdf8; font-size: 13px;">Stealth Vault Assistant</strong>
+      </div>
+      <span style="font-size: 9px; font-weight: bold; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 2px 6px; border-radius: 4px;">RAM ONLY</span>
     </div>
+
+    <p style="margin: 0 0 10px 0; font-size: 12px; color: #cbd5e1; line-height: 1.4;">
+      Simpan kredensial baru untuk <b>${site}</b> ke memori Vault?
+    </p>
+
+    <div style="font-size: 11px; margin-bottom: 12px; background: #020617; border: 1px solid #1e293b; padding: 10px; border-radius: 8px; font-family: monospace;">
+      <div style="color: #94a3b8; margin-bottom: 4px;"><b>User:</b> <span style="color: #f8fafc;">${username}</span></div>
+      <div style="color: #94a3b8;"><b>Pass:</b> <span style="color: #38bdf8;">••••••••••••</span></div>
+    </div>
+
     <div style="display: flex; gap: 8px;">
-      <button id="stealth-save-btn" style="flex: 1; padding: 6px; background: #a6e3a1; color: #11111b; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">Ya, Simpan</button>
-      <button id="stealth-ignore-btn" style="flex: 1; padding: 6px; background: #f38ba8; color: #11111b; border: none; border-radius: 5px; cursor: pointer;">Abaikan</button>
+      <button id="stealth-save-btn" style="flex: 1; padding: 8px 12px; background: linear-gradient(135deg, #38bdf8, #3b82f6); color: #020617; border: none; border-radius: 8px; font-weight: bold; font-size: 11px; cursor: pointer;">
+        Ya, Simpan
+      </button>
+      <button id="stealth-ignore-btn" style="flex: 1; padding: 8px 12px; background: #1e293b; color: #94a3b8; border: 1px solid #334155; border-radius: 8px; font-size: 11px; cursor: pointer;">
+        Abaikan
+      </button>
     </div>
   `;
 
   document.body.appendChild(modal);
 
   document.getElementById("stealth-save-btn").addEventListener("click", () => {
-    // Kirim pesan ke Background Service Worker agar tidak terblokir CSP Discord
     chrome.runtime.sendMessage(
       {
         type: "SAVE_PENDING_DATA",
-        payload: { site, username, password }
+        payload: { site, username, password },
       },
       (response) => {
         if (response && response.status === "SUCCESS") {
-          alert("Silahkan buka popup Stealth Vault di toolbar browser untuk menyelesaikan verifikasi Token Win+R & Master Password.");
-          modal.remove();
+          modal.innerHTML = `
+            <div style="text-align: center; padding: 10px;">
+              <div style="font-size: 24px; margin-bottom: 6px;">⚡</div>
+              <strong style="color: #34d399; font-size: 12px; display: block; margin-bottom: 4px;">Data Pending Tersimpan!</strong>
+              <p style="font-size: 11px; color: #94a3b8;">Buka popup Stealth Vault di toolbar browser untuk verifikasi Token & Master Password.</p>
+            </div>
+          `;
+          setTimeout(() => modal.remove(), 2500);
         }
       }
     );
@@ -69,3 +101,38 @@ function showFloatingSaveModal(site, username, password) {
     modal.remove();
   });
 }
+
+// 3. Listener Pesan Autofill dari Popup Extension
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "AUTOFILL_TRIGGER") {
+    const passwordInputs = document.querySelectorAll('input[type="password"]');
+    const textInputs = document.querySelectorAll('input[type="text"], input[type="email"], input[name*="user"], input[name*="email"]');
+
+    let filledCount = 0;
+
+    // Autofill username dan password jika ditemukan
+    if (passwordInputs.length > 0) {
+      passwordInputs.forEach((passInput) => {
+        passInput.style.transition = "box-shadow 0.3s, border-color 0.3s";
+        passInput.style.borderColor = "#38bdf8";
+        passInput.style.boxShadow = "0 0 10px rgba(56, 189, 248, 0.4)";
+        filledCount++;
+      });
+
+      if (textInputs.length > 0) {
+        textInputs.forEach((textInput) => {
+          textInput.style.transition = "box-shadow 0.3s, border-color 0.3s";
+          textInput.style.borderColor = "#34d399";
+          textInput.style.boxShadow = "0 0 10px rgba(52, 211, 153, 0.4)";
+          filledCount++;
+        });
+      }
+
+      sendResponse({ status: "SUCCESS", filledCount });
+    } else {
+      sendResponse({ status: "NOT_FOUND", filledCount: 0 });
+    }
+
+    return true;
+  }
+});

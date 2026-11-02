@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ShieldCheck,
@@ -20,9 +20,150 @@ import {
   User,
   Key,
   Folder,
-  X
+  X,
+  Check,
+  AlertTriangle,
+  Activity,
+  ShieldAlert,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  ArrowRight
 } from "lucide-react";
 import QrScannerModal from "./components/QrScannerModal";
+
+// Helper: Evaluasi kekuatan password per item
+function evaluatePassword(pwd) {
+  if (!pwd) return { score: 0, label: "Kosong", color: "#64748b", level: "empty" };
+  let score = 0;
+  const len = pwd.length;
+  if (len >= 16) score += 40;
+  else if (len >= 12) score += 30;
+  else if (len >= 8) score += 15;
+  else score += 5;
+
+  const hasUpper = /[A-Z]/.test(pwd);
+  const hasLower = /[a-z]/.test(pwd);
+  const hasNum = /[0-9]/.test(pwd);
+  const hasSym = /[^A-Za-z0-9]/.test(pwd);
+
+  if (hasUpper && hasLower) score += 20;
+  else if (hasUpper || hasLower) score += 10;
+
+  if (hasNum) score += 20;
+  if (hasSym) score += 20;
+
+  // Penalti untuk pola umum / rentan
+  const commonWeak = ["123456", "password", "admin", "admin123", "qwerty", "12345678", "secret", "user123"];
+  if (commonWeak.includes(pwd.toLowerCase())) {
+    score = Math.min(score, 20);
+  }
+
+  if (score >= 80) return { score, label: "Sangat Kuat", color: "#10b981", level: "very_strong", isStrong: true };
+  if (score >= 65) return { score, label: "Kuat", color: "#22c55e", level: "strong", isStrong: true };
+  if (score >= 45) return { score, label: "Sedang", color: "#eab308", level: "medium", isMedium: true };
+  return { score, label: "Lemah", color: "#ef4444", level: "weak", isWeak: true };
+}
+
+// Helper: Audit komprehensif kesehatan seluruh password di vault
+function auditVault(items) {
+  if (!items || items.length === 0) {
+    return {
+      healthScore: 100,
+      healthRating: "Belum Ada Data",
+      healthColor: "#64748b",
+      duplicateItemsCount: 0,
+      duplicateGroups: {},
+      weakCount: 0,
+      mediumCount: 0,
+      strongCount: 0,
+      passMap: {},
+      recommendations: ["Tambahkan data password pertama Anda untuk memulai audit keamanan."],
+    };
+  }
+
+  // Petakan password untuk mendeteksi duplikat
+  const passMap = {};
+  items.forEach((item) => {
+    if (!item || !item.password) return;
+    const p = item.password;
+    if (!passMap[p]) passMap[p] = [];
+    passMap[p].push(item.site || "Tanpa Nama");
+  });
+
+  let duplicateItemsCount = 0;
+  const duplicateGroups = {};
+  Object.entries(passMap).forEach(([pwd, siteList]) => {
+    if (siteList.length > 1) {
+      duplicateItemsCount += siteList.length;
+      duplicateGroups[pwd] = siteList;
+    }
+  });
+
+  let weakCount = 0;
+  let mediumCount = 0;
+  let strongCount = 0;
+  let totalScore = 0;
+
+  items.forEach((item) => {
+    const res = evaluatePassword(item.password);
+    totalScore += res.score;
+    if (res.isWeak) weakCount++;
+    else if (res.isMedium) mediumCount++;
+    else strongCount++;
+  });
+
+  // Kalkulasi Skor Kesehatan Keseluruhan (0 - 100%)
+  const avgStrength = totalScore / items.length;
+  const duplicatePenalty = (duplicateItemsCount / items.length) * 35;
+  const weakPenalty = (weakCount / items.length) * 25;
+  const rawScore = Math.round(Math.max(5, Math.min(100, avgStrength - duplicatePenalty - weakPenalty)));
+
+  let healthRating = "Sangat Aman";
+  let healthColor = "#10b981";
+  if (rawScore < 50) {
+    healthRating = "Beresiko Kritis";
+    healthColor = "#ef4444";
+  } else if (rawScore < 70) {
+    healthRating = "Perlu Perhatian";
+    healthColor = "#f97316";
+  } else if (rawScore < 85) {
+    healthRating = "Cukup Baik";
+    healthColor = "#eab308";
+  }
+
+  const recommendations = [];
+  if (duplicateItemsCount > 0) {
+    const uniqueGroupCount = Object.keys(duplicateGroups).length;
+    recommendations.push(
+      `⚠️ Terdeteksi ${duplicateItemsCount} akun yang menggunakan ${uniqueGroupCount} sandi duplikat. Jika 1 akun bocor, akun lain beresiko diretas (Credential Stuffing).`
+    );
+  }
+  if (weakCount > 0) {
+    recommendations.push(
+      `🔓 Ditemukan ${weakCount} sandi lemah (kurang dari 8 karakter atau pola sederhana). Disarankan menggunakan minimal 12-16 karakter acak.`
+    );
+  }
+  if (duplicateItemsCount === 0 && weakCount === 0) {
+    recommendations.push(
+      `✨ Luar biasa! Seluruh kredensial Anda unik dan berstandar enkripsi tinggi tanpa ada kebocoran duplikat.`
+    );
+  }
+
+  return {
+    healthScore: rawScore,
+    healthRating,
+    healthColor,
+    duplicateItemsCount,
+    duplicateGroups,
+    weakCount,
+    mediumCount,
+    strongCount,
+    passMap,
+    recommendations,
+  };
+}
 
 export default function AppMobile() {
   const [masterPasswordInput, setMasterPasswordInput] = useState("");
@@ -30,18 +171,21 @@ export default function AppMobile() {
   const [items, setItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("Semua");
+  const [securityFilter, setSecurityFilter] = useState("ALL"); // ALL, DUPLICATE, WEAK, STRONG
   const [errorMsg, setErrorMsg] = useState("");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [copiedId, setCopiedId] = useState(null);
+  const [showHealthDetails, setShowHealthDetails] = useState(true);
 
   // Stored target PC IP Address
   const [savedPcIp, setSavedPcIp] = useState(
     () => localStorage.getItem("STEALTH_PC_IP") || ""
   );
 
-  // Form states for adding and updating Vault entries
+  // Form states
   const [siteInput, setSiteInput] = useState("");
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
@@ -58,7 +202,7 @@ export default function AppMobile() {
 
   useEffect(() => {
     if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(""), 2500);
+      const timer = setTimeout(() => setToastMessage(""), 2800);
       return () => clearTimeout(timer);
     }
   }, [toastMessage]);
@@ -79,7 +223,7 @@ export default function AppMobile() {
         if (localData) setItems(JSON.parse(localData));
       }
     } catch (err) {
-      console.error("Gagal muat data lokal:", err);
+      console.warn("Gagal muat data lokal:", err);
     }
   };
 
@@ -97,11 +241,11 @@ export default function AppMobile() {
         if (masterPasswordInput === "admin123") {
           setIsUnlocked(true);
         } else {
-          setErrorMsg("Master Password Salah!");
+          setErrorMsg("Master Password salah! (Default: admin123)");
         }
       }
     } catch (err) {
-      setErrorMsg(String(err));
+      setErrorMsg("Master Password salah! Akses ditolak.");
     }
   };
 
@@ -122,38 +266,64 @@ export default function AppMobile() {
         }
         setPasswordInput(pass);
       }
-      showToast("Password acak berhasil dibuat!");
+      showToast("🎲 Password acak 16 karakter dibuat!");
     } catch (err) {
-      console.error("Gagal generate password:", err);
+      console.warn("Gagal generate:", err);
     }
   };
 
+  // Helper pembersih QR Code data menjadi IP address murni
+  const extractCleanIp = (rawText) => {
+    if (!rawText) return "";
+    let str = String(rawText).trim();
+    if (str.startsWith("{") && str.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(str);
+        return parsed.ip || parsed.local_ip || "";
+      } catch (e) {}
+    }
+    str = str.replace(/^https?:\/\//i, "");
+    str = str.split("/")[0];
+    str = str.split(":")[0];
+    return str.trim();
+  };
+
   const executeTwoWaySyncWithItems = async (targetIp, currentLocalItems) => {
-    if (!targetIp) return;
+    const cleanIp = extractCleanIp(targetIp);
+    if (!cleanIp) {
+      showToast("IP PC tidak valid!");
+      return;
+    }
+
     setIsSyncing(true);
-    setStatusMsg("Menghubungkan ke PC...");
+    setStatusMsg(`Menghubungkan ke PC (${cleanIp})...`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
 
     try {
       if (navigator.vibrate) navigator.vibrate(80);
 
-      // 1. Fetch PC Vault Data (GET)
-      const response = await fetch(`http://${targetIp}:14202/api/sync`, {
+      // 1. Fetch data dari server PC
+      const response = await fetch(`http://${cleanIp}:14202/api/sync`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
       });
 
-      let pcItems = [];
-      if (response.ok) {
-        pcItems = await response.json();
+      if (!response.ok) {
+        throw new Error(`Server PC merespon status ${response.status}`);
       }
 
-      // 2. Perform CRDT Merge based on timestamps
-      const mergedMap = new Map();
+      const pcItems = await response.json();
 
+      // 2. CRDT Timestamp-based Conflict-Free Replicated Data Type Merge
+      const mergedMap = new Map();
       [...pcItems, ...currentLocalItems].forEach((item) => {
+        if (!item || !item.id) return;
         if (
           !mergedMap.has(item.id) ||
-          item.updated_at >= mergedMap.get(item.id).updated_at
+          (item.updated_at || 0) >= (mergedMap.get(item.id).updated_at || 0)
         ) {
           mergedMap.set(item.id, item);
         }
@@ -161,18 +331,19 @@ export default function AppMobile() {
 
       const finalMergedItems = Array.from(mergedMap.values());
 
-      // 3. Send merged items back to PC (POST)
-      const postRes = await fetch(`http://${targetIp}:14202/api/sync`, {
+      // 3. Kirim balik hasil penggabungan ke PC
+      const postRes = await fetch(`http://${cleanIp}:14202/api/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vault_items: finalMergedItems }),
+        signal: controller.signal,
       });
 
       if (!postRes.ok) {
-        throw new Error("PC menolak menyimpan data!");
+        throw new Error("PC menolak menyimpan pembaruan!");
       }
 
-      // 4. Persist updated merged state to Local Storage / SQLite
+      // 4. Simpan ke local state HP
       setItems(finalMergedItems);
       if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
         await invoke("import_vault_data", {
@@ -185,43 +356,44 @@ export default function AppMobile() {
         );
       }
 
-      localStorage.setItem("STEALTH_PC_IP", targetIp);
-      setSavedPcIp(targetIp);
+      localStorage.setItem("STEALTH_PC_IP", cleanIp);
+      setSavedPcIp(cleanIp);
 
-      setStatusMsg("✅ Disinkronkan dengan PC!");
-      showToast("Sinkronisasi P2P Berhasil!");
+      setStatusMsg(`✅ Berhasil tersinkronisasi dengan PC (${finalMergedItems.length} item)`);
+      showToast("⚡ Sinkronisasi P2P Berhasil!");
     } catch (err) {
-      console.error("Gagal Sync:", err);
-      setStatusMsg("⚠️ Tersimpan Lokal (PC Offline)");
+      console.warn("Gagal P2P Sync:", err);
+      let note = "Pastikan PC & HP di jaringan Wi-Fi yang sama.";
+      if (err.name === "AbortError") {
+        note = "Timeout. Cek apakah Firewall PC mengizinkan port 14202.";
+      }
+      setStatusMsg(`⚠️ Gagal konek PC: ${note}`);
+      showToast("⚠️ PC tidak dapat dijangkau");
     } finally {
+      clearTimeout(timeoutId);
       setIsSyncing(false);
     }
   };
 
-  const handleScanSuccess = async (p2pData) => {
+  const handleScanSuccess = async (scannedData) => {
     setIsScannerOpen(false);
-    let targetIp = p2pData;
-
-    try {
-      if (typeof p2pData === "string") {
-        try {
-          const parsed = JSON.parse(p2pData);
-          targetIp = parsed.ip || parsed.local_ip;
-        } catch {
-          const urlClean = p2pData
-            .replace("http://", "")
-            .replace("https://", "");
-          targetIp = urlClean.split(":")[0].split("/")[0];
-        }
-      }
-      executeTwoWaySyncWithItems(targetIp, items);
-    } catch (err) {
-      showToast("Gagal membaca IP PC");
+    const ip = extractCleanIp(scannedData);
+    if (ip) {
+      setSavedPcIp(ip);
+      localStorage.setItem("STEALTH_PC_IP", ip);
+      executeTwoWaySyncWithItems(ip, items);
+    } else {
+      showToast("Gagal membaca IP dari QR Code!");
     }
   };
 
   const handleSaveItem = async (e) => {
     e.preventDefault();
+    if (!siteInput || !usernameInput || !passwordInput) {
+      showToast("Lengkapi semua kolom!");
+      return;
+    }
+
     try {
       let updatedList = [];
       const now = Date.now();
@@ -244,7 +416,7 @@ export default function AppMobile() {
           }
           return item;
         });
-        showToast("Item berhasil diperbarui!");
+        showToast("✅ Password diperbarui!");
       } else {
         const newItem = {
           id: String(now),
@@ -257,7 +429,7 @@ export default function AppMobile() {
           is_deleted: false,
         };
         updatedList = [...items, newItem];
-        showToast("Item baru disimpan!");
+        showToast("✅ Password baru disimpan!");
       }
 
       setItems(updatedList);
@@ -281,11 +453,20 @@ export default function AppMobile() {
       if (savedPcIp) {
         await executeTwoWaySyncWithItems(savedPcIp, updatedList);
       } else {
-        setStatusMsg("✅ Data tersimpan lokal di HP!");
+        setStatusMsg("✅ Data tersimpan di memori HP!");
       }
     } catch (err) {
       showToast("Gagal menyimpan item");
     }
+  };
+
+  const handleEditClick = (item) => {
+    setEditingId(item.id);
+    setSiteInput(item.site);
+    setUsernameInput(item.username);
+    setPasswordInput(item.password);
+    setCategoryInput(item.category || "Kampus");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDeleteItem = async (id) => {
@@ -299,55 +480,218 @@ export default function AppMobile() {
       localStorage.setItem("STEALTH_VAULT_ITEMS", JSON.stringify(updated));
     }
 
-    showToast("Item berhasil dihapus");
+    showToast("🗑️ Item dihapus");
     if (savedPcIp) executeTwoWaySyncWithItems(savedPcIp, updated);
   };
 
-  // Filtered Items Logic
+  const handleCopy = (pass, id) => {
+    navigator.clipboard.writeText(pass);
+    setCopiedId(id);
+    showToast("📋 Password disalin!");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const togglePasswordVisibility = (id) => {
+    setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Fitur Cepat: Acak sandi baru untuk item tertentu (misal yang duplikat / lemah)
+  const handleQuickFixPassword = async (item) => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
+    let newPass = "";
+    for (let i = 0; i < 16; i++) {
+      newPass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    const now = Date.now();
+    const updatedList = items.map((i) => {
+      if (i.id === item.id) {
+        const curHist = Array.isArray(i.history) ? i.history : [i.password];
+        return {
+          ...i,
+          password: newPass,
+          history: [...curHist, newPass],
+          updated_at: now,
+        };
+      }
+      return i;
+    });
+
+    setItems(updatedList);
+    if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
+      await invoke("import_vault_data", {
+        importedJson: JSON.stringify(updatedList),
+      });
+    } else {
+      localStorage.setItem("STEALTH_VAULT_ITEMS", JSON.stringify(updatedList));
+    }
+
+    showToast(`🎲 Sandi ${item.site} diperbarui ke 16 karakter acak!`);
+    if (savedPcIp) executeTwoWaySyncWithItems(savedPcIp, updatedList);
+  };
+
+  // Komputasi Audit Keamanan & Kesehatan Vault
+  const audit = useMemo(() => auditVault(items), [items]);
+
+  // Evaluasi kekuatan password yang sedang diketik di Form
+  const formPassStrength = useMemo(() => evaluatePassword(passwordInput), [passwordInput]);
+
+  const categoriesList = ["Semua", "Kampus", "Pekerjaan", "Sosmed", "Keuangan", "Lainnya"];
+
   const filteredItems = items.filter((item) => {
+    if (!item) return false;
     const matchesSearch =
-      item.site.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.username.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.site || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.username || "").toLowerCase().includes(searchQuery.toLowerCase());
+
     const matchesCategory =
       selectedCategoryFilter === "Semua" ||
       item.category === selectedCategoryFilter;
-    return matchesSearch && matchesCategory;
+
+    // Filter Khusus Keamanan
+    let matchesSecurity = true;
+    if (securityFilter === "DUPLICATE") {
+      const sitesWithSamePass = audit.passMap[item.password] || [];
+      matchesSecurity = sitesWithSamePass.length > 1;
+    } else if (securityFilter === "WEAK") {
+      const ev = evaluatePassword(item.password);
+      matchesSecurity = ev.isWeak;
+    } else if (securityFilter === "STRONG") {
+      const ev = evaluatePassword(item.password);
+      const sitesWithSamePass = audit.passMap[item.password] || [];
+      matchesSecurity = ev.isStrong && sitesWithSamePass.length === 1;
+    }
+
+    return matchesSearch && matchesCategory && matchesSecurity;
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
-      {/* Toast Notification */}
+    <div
+      style={{
+        backgroundColor: "#070b14",
+        color: "#f8fafc",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        boxSizing: "border-box",
+        WebkitFontSmoothing: "antialiased",
+      }}
+    >
+      {/* Toast Pop-up */}
       {toastMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl text-xs font-semibold flex items-center gap-2 animate-bounce border border-indigo-400">
+        <div
+          style={{
+            position: "fixed",
+            top: "max(env(safe-area-inset-top), 28px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            backgroundColor: "#4f46e5",
+            color: "#ffffff",
+            padding: "10px 20px",
+            borderRadius: "999px",
+            fontSize: "13px",
+            fontWeight: "700",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            boxShadow: "0 10px 25px -5px rgba(79, 70, 229, 0.5)",
+            border: "1px solid #818cf8",
+            zIndex: 99999,
+          }}
+        >
           <CheckCircle2 size={16} />
           {toastMessage}
         </div>
       )}
 
-      {/* Main App Bar */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex justify-between items-center shadow-lg">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl shadow-md">
-            <ShieldCheck size={20} className="text-white" />
+      {/* App Bar / Header dengan Safe Area Top Padding untuk mencegah tabrakan Status Bar / Notch */}
+      <header
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 40,
+          backgroundColor: "rgba(15, 23, 42, 0.96)",
+          backdropFilter: "blur(14px)",
+          borderBottom: "1px solid #1e293b",
+          paddingTop: "max(env(safe-area-inset-top), 26px)",
+          paddingBottom: "12px",
+          paddingLeft: "16px",
+          paddingRight: "16px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.5)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div
+            style={{
+              padding: "8px",
+              background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+              borderRadius: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 10px rgba(79, 70, 229, 0.4)",
+            }}
+          >
+            <ShieldCheck size={20} color="#ffffff" />
           </div>
           <div>
-            <h1 className="text-sm font-extrabold tracking-wide text-white flex items-center gap-1.5">
-              STEALTH VAULT
-              <span className="text-[9px] uppercase px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-md font-bold">
-                Mobile
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "15px",
+                  fontWeight: "900",
+                  letterSpacing: "0.5px",
+                  color: "#ffffff",
+                }}
+              >
+                MobilePMSV
+              </h1>
+              <span
+                style={{
+                  backgroundColor: "rgba(99, 102, 241, 0.2)",
+                  color: "#a5b4fc",
+                  border: "1px solid rgba(99, 102, 241, 0.4)",
+                  fontSize: "9px",
+                  fontWeight: "800",
+                  textTransform: "uppercase",
+                  padding: "2px 6px",
+                  borderRadius: "6px",
+                }}
+              >
+                Stealth Vault
               </span>
-            </h1>
-            <p className="text-[10px] text-slate-400">Secure P2P Vault</p>
+            </div>
+            <p style={{ margin: 0, fontSize: "10px", color: "#94a3b8" }}>
+              Zero-Disk Secure P2P Vault
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <button
             type="button"
             onClick={() => setIsScannerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold rounded-xl transition shadow-md active:scale-95"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "12px",
+              padding: "8px 14px",
+              fontSize: "12px",
+              fontWeight: "700",
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)",
+            }}
           >
-            <Smartphone size={15} />
+            <Smartphone size={14} />
             <span>Scan QR</span>
           </button>
 
@@ -355,7 +699,17 @@ export default function AppMobile() {
             <button
               type="button"
               onClick={() => setIsUnlocked(false)}
-              className="p-2 bg-slate-800 hover:bg-rose-600/30 text-slate-300 hover:text-rose-400 border border-slate-700/60 rounded-xl transition active:scale-95"
+              style={{
+                backgroundColor: "#1e293b",
+                color: "#94a3b8",
+                border: "1px solid #334155",
+                borderRadius: "12px",
+                padding: "8px 10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
               title="Kunci Vault"
             >
               <LogOut size={16} />
@@ -364,114 +718,618 @@ export default function AppMobile() {
         </div>
       </header>
 
-      {}
-      <main className="flex-1 p-4 max-w-md mx-auto w-full space-y-4">
+      {/* Main Content Area dengan Bottom Safe Margin agar tidak tertutup tombol navigasi Android */}
+      <main
+        style={{
+          flex: 1,
+          padding: "16px",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 24px) + 60px)",
+          maxWidth: "460px",
+          margin: "0 auto",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
         {!isUnlocked ? (
-          /* Locked Screen View */
-          <div className="my-auto py-12 flex flex-col justify-center items-center">
-            <div className="w-full bg-slate-900/90 border border-slate-800 p-6 rounded-3xl shadow-2xl space-y-6">
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 bg-indigo-950/80 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto shadow-inner text-indigo-400">
-                  <Lock size={30} />
-                </div>
-                <h2 className="text-base font-bold text-white tracking-wide">
-                  Buka Brankas Mobile
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Masukkan Master Password Anda untuk mengakses data terenkripsi.
-                </p>
+          /* LOCK SCREEN VIEW */
+          <div
+            style={{
+              marginTop: "40px",
+              backgroundColor: "#0f172a",
+              border: "1px solid #1e293b",
+              borderRadius: "24px",
+              padding: "28px 20px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.6)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "64px",
+                height: "64px",
+                borderRadius: "20px",
+                background: "rgba(99, 102, 241, 0.15)",
+                border: "1px solid rgba(99, 102, 241, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 16px auto",
+                boxShadow: "0 10px 25px rgba(99, 102, 241, 0.2)",
+              }}
+            >
+              <Lock size={30} color="#818cf8" />
+            </div>
+
+            <h2
+              style={{
+                fontSize: "20px",
+                fontWeight: "800",
+                color: "#ffffff",
+                marginBottom: "6px",
+              }}
+            >
+              Vault Terkunci
+            </h2>
+            <p
+              style={{
+                fontSize: "12px",
+                color: "#94a3b8",
+                marginBottom: "24px",
+                lineHeight: "1.5",
+              }}
+            >
+              Masukkan Master Password untuk mendekripsi brankas data di RAM ponsel Anda.
+            </p>
+
+            <form onSubmit={handleUnlock}>
+              <div style={{ position: "relative", marginBottom: "16px" }}>
+                <input
+                  type="password"
+                  placeholder="Master Password (admin123)"
+                  value={masterPasswordInput}
+                  onChange={(e) => setMasterPasswordInput(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    backgroundColor: "#070b14",
+                    border: errorMsg ? "1px solid #ef4444" : "1px solid #334155",
+                    borderRadius: "14px",
+                    color: "#f8fafc",
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                    outline: "none",
+                  }}
+                  autoFocus
+                />
               </div>
 
-              <form onSubmit={handleUnlock} className="space-y-4">
-                <div className="relative">
-                  <input
-                    type="password"
-                    placeholder="Masukkan Master Password..."
-                    value={masterPasswordInput}
-                    onChange={(e) => setMasterPasswordInput(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl text-sm text-white placeholder:text-slate-600 outline-none transition shadow-inner"
-                    required
-                  />
+              {errorMsg && (
+                <div
+                  style={{
+                    color: "#f87171",
+                    fontSize: "12px",
+                    marginBottom: "16px",
+                    textAlign: "left",
+                    backgroundColor: "rgba(239, 68, 68, 0.1)",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(239, 68, 68, 0.2)",
+                  }}
+                >
+                  {errorMsg}
                 </div>
+              )}
 
-                {errorMsg && (
-                  <p className="text-rose-400 text-xs font-medium text-center bg-rose-950/30 border border-rose-900/50 py-2 rounded-lg">
-                    {errorMsg}
-                  </p>
+              <button
+                type="submit"
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "14px",
+                  fontSize: "14px",
+                  fontWeight: "800",
+                  cursor: "pointer",
+                  boxShadow: "0 8px 20px rgba(79, 70, 229, 0.35)",
+                }}
+              >
+                Buka Brankas Vault
+              </button>
+            </form>
+          </div>
+        ) : (
+          /* UNLOCKED VAULT VIEW */
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* P2P Status & Sync Card */}
+            <div
+              style={{
+                backgroundColor: "#0f172a",
+                border: "1px solid #1e293b",
+                borderRadius: "18px",
+                padding: "12px 14px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    backgroundColor: savedPcIp ? "#22c55e" : "#f59e0b",
+                    boxShadow: savedPcIp
+                      ? "0 0 10px #22c55e"
+                      : "0 0 10px #f59e0b",
+                  }}
+                />
+                <div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      color: "#f8fafc",
+                    }}
+                  >
+                    PC:{" "}
+                    <span style={{ color: "#818cf8" }}>
+                      {savedPcIp || "Belum Terhubung"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#64748b" }}>
+                    {savedPcIp ? "P2P Wi-Fi Sync Ready" : "Scan QR untuk pairing"}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                {savedPcIp && (
+                  <button
+                    type="button"
+                    onClick={() => executeTwoWaySyncWithItems(savedPcIp, items)}
+                    disabled={isSyncing}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      backgroundColor: "#4f46e5",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: "10px",
+                      padding: "8px 12px",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      cursor: isSyncing ? "not-allowed" : "pointer",
+                      opacity: isSyncing ? 0.7 : 1,
+                    }}
+                  >
+                    <RefreshCw
+                      size={12}
+                      style={{
+                        animation: isSyncing ? "spin 1s linear infinite" : "none",
+                      }}
+                    />
+                    <span>{isSyncing ? "Syncing..." : "Sync PC"}</span>
+                  </button>
                 )}
 
                 <button
-                  type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-bold tracking-wider uppercase transition shadow-lg shadow-indigo-950 active:scale-98"
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  style={{
+                    backgroundColor: "#1e293b",
+                    color: "#94a3b8",
+                    border: "1px solid #334155",
+                    borderRadius: "10px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  title="Ubah IP / Scan Ulang"
                 >
-                  Buka Brankas
-                </button>
-              </form>
-            </div>
-          </div>
-        ) : (
-          /* Unlocked Main View */
-          <>
-            {/* Sync Bar Status */}
-            {savedPcIp && (
-              <div className="bg-slate-900/80 border border-indigo-900/40 p-3 rounded-2xl flex items-center justify-between shadow-md">
-                <div className="flex items-center gap-2.5">
-                  <div className="relative">
-                    <Wifi size={18} className="text-emerald-400 animate-pulse" />
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full"></span>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-200">
-                      PC Target: <span className="text-indigo-400">{savedPcIp}</span>
-                    </p>
-                    <p className="text-[10px] text-slate-400">P2P Auto Sync Ready</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => executeTwoWaySyncWithItems(savedPcIp, items)}
-                  disabled={isSyncing}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition disabled:opacity-50 active:scale-95 shadow-md"
-                >
-                  <RefreshCw
-                    size={13}
-                    className={isSyncing ? "animate-spin" : ""}
-                  />
-                  <span>{isSyncing ? "Sync..." : "Sync"}</span>
+                  <Edit3 size={12} />
                 </button>
               </div>
-            )}
+            </div>
 
-            {/* Status Notification banner */}
+            {/* Status Message Notification Bar */}
             {statusMsg && (
-              <div className="px-3 py-2 bg-slate-900/90 border border-slate-800 rounded-xl text-center text-xs font-medium text-indigo-300 shadow-sm flex items-center justify-between">
-                <span className="truncate">{statusMsg}</span>
+              <div
+                style={{
+                  backgroundColor: statusMsg.includes("Berhasil")
+                    ? "rgba(16, 185, 129, 0.15)"
+                    : "rgba(245, 158, 11, 0.15)",
+                  color: statusMsg.includes("Berhasil") ? "#6ee7b7" : "#fcd34d",
+                  border: statusMsg.includes("Berhasil")
+                    ? "1px solid rgba(16, 185, 129, 0.3)"
+                    : "1px solid rgba(245, 158, 11, 0.3)",
+                  borderRadius: "14px",
+                  padding: "10px 14px",
+                  fontSize: "12px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  lineHeight: "1.4",
+                }}
+              >
+                <span>{statusMsg}</span>
                 <button
+                  type="button"
                   onClick={() => setStatusMsg("")}
-                  className="text-slate-500 hover:text-slate-300 ml-2"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "inherit",
+                    cursor: "pointer",
+                    padding: "2px",
+                  }}
                 >
                   <X size={14} />
                 </button>
               </div>
             )}
 
-            {}
-            <form
-              onSubmit={handleSaveItem}
-              className="bg-slate-900 border border-slate-800/80 p-4 rounded-2xl shadow-xl space-y-3.5"
+            {/* ============================================================ */}
+            {/* 🛡️ FITUR BARU: MONITORING & KESEHATAN PASSWORD VAULT DASHBOARD */}
+            {/* ============================================================ */}
+            <div
+              style={{
+                backgroundColor: "#0d1527",
+                border: "1px solid #1e293b",
+                borderRadius: "20px",
+                padding: "16px",
+                boxShadow: "0 10px 25px rgba(0, 0, 0, 0.4)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
             >
-              <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
-                <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  {editingId ? (
-                    <>
-                      <Edit3 size={14} className="text-amber-400" /> Edit Password
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle size={14} className="text-indigo-400" /> Tambah Password Baru
-                    </>
-                  )}
-                </h3>
+              {/* Header Bar Monitoring */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      padding: "6px",
+                      borderRadius: "10px",
+                      background: "rgba(99, 102, 241, 0.2)",
+                      border: "1px solid rgba(99, 102, 241, 0.4)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Activity size={16} color="#818cf8" />
+                  </div>
+                  <div>
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: "13px",
+                        fontWeight: "800",
+                        color: "#ffffff",
+                        letterSpacing: "0.3px",
+                      }}
+                    >
+                      KESEHATAN & MONITORING PASSWORD
+                    </h3>
+                    <p style={{ margin: 0, fontSize: "10px", color: "#64748b" }}>
+                      Analisis Keamanan Brankas Real-Time
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <div
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "900",
+                      color: audit.healthColor,
+                    }}
+                  >
+                    {audit.healthScore}%
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowHealthDetails((p) => !p)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#64748b",
+                      cursor: "pointer",
+                      padding: "4px",
+                    }}
+                  >
+                    {showHealthDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress Bar Persentase Kesehatan */}
+              <div style={{ width: "100%" }}>
+                <div
+                  style={{
+                    height: "8px",
+                    backgroundColor: "#1e293b",
+                    borderRadius: "999px",
+                    overflow: "hidden",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${audit.healthScore}%`,
+                      background: `linear-gradient(90deg, #6366f1, ${audit.healthColor})`,
+                      boxShadow: `0 0 10px ${audit.healthColor}88`,
+                      transition: "width 0.5s ease-in-out",
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginTop: "6px",
+                    fontSize: "10px",
+                    fontWeight: "700",
+                  }}
+                >
+                  <span style={{ color: "#94a3b8" }}>
+                    Status: <strong style={{ color: audit.healthColor }}>{audit.healthRating}</strong>
+                  </span>
+                  <span style={{ color: "#64748b" }}>
+                    {items.length} Kredensial Terdaftar
+                  </span>
+                </div>
+              </div>
+
+              {/* 3 Chip Metrik Keamanan (Interaktif / Bisa Diklik untuk Filter) */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: "8px",
+                  marginTop: "4px",
+                }}
+              >
+                {/* Chip Duplikat */}
+                <div
+                  onClick={() =>
+                    setSecurityFilter((prev) => (prev === "DUPLICATE" ? "ALL" : "DUPLICATE"))
+                  }
+                  style={{
+                    backgroundColor:
+                      securityFilter === "DUPLICATE"
+                        ? "rgba(239, 68, 68, 0.25)"
+                        : "rgba(15, 23, 42, 0.7)",
+                    border:
+                      securityFilter === "DUPLICATE"
+                        ? "1px solid #ef4444"
+                        : audit.duplicateItemsCount > 0
+                        ? "1px solid rgba(239, 68, 68, 0.4)"
+                        : "1px solid #1e293b",
+                    borderRadius: "14px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "900",
+                      color: audit.duplicateItemsCount > 0 ? "#f87171" : "#94a3b8",
+                    }}
+                  >
+                    {audit.duplicateItemsCount}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: "700",
+                      color: audit.duplicateItemsCount > 0 ? "#fca5a5" : "#64748b",
+                      marginTop: "2px",
+                    }}
+                  >
+                    ⚠️ Duplikat
+                  </div>
+                </div>
+
+                {/* Chip Lemah */}
+                <div
+                  onClick={() =>
+                    setSecurityFilter((prev) => (prev === "WEAK" ? "ALL" : "WEAK"))
+                  }
+                  style={{
+                    backgroundColor:
+                      securityFilter === "WEAK"
+                        ? "rgba(245, 158, 11, 0.25)"
+                        : "rgba(15, 23, 42, 0.7)",
+                    border:
+                      securityFilter === "WEAK"
+                        ? "1px solid #f59e0b"
+                        : audit.weakCount > 0
+                        ? "1px solid rgba(245, 158, 11, 0.4)"
+                        : "1px solid #1e293b",
+                    borderRadius: "14px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "900",
+                      color: audit.weakCount > 0 ? "#fbbf24" : "#94a3b8",
+                    }}
+                  >
+                    {audit.weakCount}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: "700",
+                      color: audit.weakCount > 0 ? "#fde68a" : "#64748b",
+                      marginTop: "2px",
+                    }}
+                  >
+                    🔓 Lemah
+                  </div>
+                </div>
+
+                {/* Chip Kuat & Unik */}
+                <div
+                  onClick={() =>
+                    setSecurityFilter((prev) => (prev === "STRONG" ? "ALL" : "STRONG"))
+                  }
+                  style={{
+                    backgroundColor:
+                      securityFilter === "STRONG"
+                        ? "rgba(16, 185, 129, 0.25)"
+                        : "rgba(15, 23, 42, 0.7)",
+                    border:
+                      securityFilter === "STRONG"
+                        ? "1px solid #10b981"
+                        : "1px solid #1e293b",
+                    borderRadius: "14px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "900",
+                      color: "#34d399",
+                    }}
+                  >
+                    {audit.strongCount}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: "700",
+                      color: "#6ee7b7",
+                      marginTop: "2px",
+                    }}
+                  >
+                    🛡️ Kuat & Unik
+                  </div>
+                </div>
+              </div>
+
+              {/* Rekomendasi Cerdas Keamanan (Dapat diciutkan) */}
+              {showHealthDetails && audit.recommendations.length > 0 && (
+                <div
+                  style={{
+                    backgroundColor: "rgba(15, 23, 42, 0.6)",
+                    border: "1px solid #1e293b",
+                    borderRadius: "12px",
+                    padding: "10px 12px",
+                    marginTop: "4px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                  }}
+                >
+                  {audit.recommendations.map((rec, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        fontSize: "11px",
+                        color: "#cbd5e1",
+                        lineHeight: "1.4",
+                      }}
+                    >
+                      {rec}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Indikator Filter Aktif */}
+              {securityFilter !== "ALL" && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    backgroundColor: "rgba(79, 70, 229, 0.15)",
+                    border: "1px solid rgba(79, 70, 229, 0.3)",
+                    borderRadius: "10px",
+                    padding: "6px 10px",
+                    fontSize: "11px",
+                  }}
+                >
+                  <span style={{ color: "#c7d2fe" }}>
+                    Menampilkan filter: <strong>{securityFilter}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSecurityFilter("ALL")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#818cf8",
+                      fontWeight: "800",
+                      cursor: "pointer",
+                      fontSize: "11px",
+                    }}
+                  >
+                    Reset Filter
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Form Tambah / Edit Password */}
+            <div
+              style={{
+                backgroundColor: "#0f172a",
+                border: "1px solid #1e293b",
+                borderRadius: "20px",
+                padding: "18px 16px",
+                boxShadow: "0 10px 25px rgba(0, 0, 0, 0.4)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "14px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "14px",
+                    fontWeight: "800",
+                    color: "#ffffff",
+                  }}
+                >
+                  <PlusCircle size={18} color="#818cf8" />
+                  <span>{editingId ? "Edit Password" : "Tambah Password Baru"}</span>
+                </div>
                 {editingId && (
                   <button
                     type="button"
@@ -481,86 +1339,255 @@ export default function AppMobile() {
                       setUsernameInput("");
                       setPasswordInput("");
                     }}
-                    className="text-[11px] text-rose-400 hover:underline font-medium"
+                    style={{
+                      backgroundColor: "transparent",
+                      border: "none",
+                      color: "#94a3b8",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
                   >
-                    Batal Edit
+                    <X size={14} />
+                    <span>Batal</span>
                   </button>
                 )}
               </div>
 
-              {/* Site / App Title Input */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <Globe size={11} /> Nama Situs / Aplikasi
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Mobile Banking / Google"
-                  value={siteInput}
-                  onChange={(e) => setSiteInput(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800/80 focus:border-indigo-500 rounded-xl text-xs text-white placeholder:text-slate-600 outline-none transition"
-                  required
-                />
-              </div>
+              <form onSubmit={handleSaveItem}>
+                {/* Nama Situs */}
+                <div style={{ marginBottom: "12px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      color: "#94a3b8",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    <Globe size={12} />
+                    <span>Nama Situs / Layanan</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Mobile Banking / Google / Kampus"
+                    value={siteInput}
+                    onChange={(e) => setSiteInput(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      backgroundColor: "#070b14",
+                      border: "1px solid #334155",
+                      borderRadius: "12px",
+                      color: "#f8fafc",
+                      fontSize: "13px",
+                      boxSizing: "border-box",
+                      outline: "none",
+                    }}
+                  />
+                </div>
 
-              {/* Username Input */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <User size={11} /> Username / Email
-                </label>
-                <input
-                  type="text"
-                  placeholder="user@example.com"
-                  value={usernameInput}
-                  onChange={(e) => setUsernameInput(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800/80 focus:border-indigo-500 rounded-xl text-xs text-white placeholder:text-slate-600 outline-none transition"
-                  required
-                />
-              </div>
+                {/* Username / Email */}
+                <div style={{ marginBottom: "12px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      color: "#94a3b8",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    <User size={12} />
+                    <span>Username / Email / ID</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="user@example.com"
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      backgroundColor: "#070b14",
+                      border: "1px solid #334155",
+                      borderRadius: "12px",
+                      color: "#f8fafc",
+                      fontSize: "13px",
+                      boxSizing: "border-box",
+                      outline: "none",
+                    }}
+                  />
+                </div>
 
-              {/* Password & Category Grid */}
-              <div className="grid grid-cols-1 gap-3">
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                      <Key size={11} /> Password
+                {/* Password & Generator */}
+                <div style={{ marginBottom: "12px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        color: "#94a3b8",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      <Key size={12} />
+                      <span>Password</span>
                     </label>
                     <button
                       type="button"
                       onClick={handleGeneratePassword}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        background: "none",
+                        border: "none",
+                        color: "#818cf8",
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        cursor: "pointer",
+                      }}
                     >
-                      <Dices size={11} /> Acak Password
+                      <Dices size={13} />
+                      <span>Acak Password</span>
                     </button>
                   </div>
 
-                  <div className="relative flex items-center">
+                  <div style={{ position: "relative" }}>
                     <input
                       type={showPasswordInForm ? "text" : "password"}
                       placeholder="••••••••••••"
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
-                      className="w-full px-3 py-2.5 pr-10 bg-slate-950 border border-slate-800/80 focus:border-indigo-500 rounded-xl text-xs text-white placeholder:text-slate-600 outline-none transition font-mono"
-                      required
+                      style={{
+                        width: "100%",
+                        padding: "12px 42px 12px 14px",
+                        backgroundColor: "#070b14",
+                        border: "1px solid #334155",
+                        borderRadius: "12px",
+                        color: "#f8fafc",
+                        fontSize: "13px",
+                        boxSizing: "border-box",
+                        outline: "none",
+                      }}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPasswordInForm(!showPasswordInForm)}
-                      className="absolute right-3 text-slate-400 hover:text-slate-200"
+                      style={{
+                        position: "absolute",
+                        right: "12px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        color: "#64748b",
+                        cursor: "pointer",
+                        padding: "4px",
+                      }}
                     >
-                      {showPasswordInForm ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showPasswordInForm ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+
+                  {/* Indikator Kekuatan Password Real-Time di Form */}
+                  {passwordInput && (
+                    <div style={{ marginTop: "6px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          fontSize: "10px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <span style={{ color: "#94a3b8" }}>Kekuatan Sandi:</span>
+                        <span
+                          style={{
+                            color: formPassStrength.color,
+                            fontWeight: "800",
+                          }}
+                        >
+                          {formPassStrength.label} ({formPassStrength.score}%)
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          height: "4px",
+                          backgroundColor: "#1e293b",
+                          borderRadius: "999px",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${formPassStrength.score}%`,
+                            backgroundColor: formPassStrength.color,
+                            transition: "width 0.3s ease",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Folder size={11} /> Kategori
+                {/* Kategori Dropdown */}
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      color: "#94a3b8",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    <Folder size={12} />
+                    <span>Kategori</span>
                   </label>
                   <select
                     value={categoryInput}
                     onChange={(e) => setCategoryInput(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800/80 focus:border-indigo-500 rounded-xl text-xs text-slate-200 outline-none transition"
+                    style={{
+                      width: "100%",
+                      padding: "12px 14px",
+                      backgroundColor: "#070b14",
+                      border: "1px solid #334155",
+                      borderRadius: "12px",
+                      color: "#f8fafc",
+                      fontSize: "13px",
+                      boxSizing: "border-box",
+                      outline: "none",
+                    }}
                   >
                     <option value="Kampus">Kampus</option>
                     <option value="Pekerjaan">Pekerjaan</option>
@@ -569,167 +1596,430 @@ export default function AppMobile() {
                     <option value="Lainnya">Lainnya</option>
                   </select>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={isSyncing}
-                className="w-full py-2.5 mt-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-bold transition shadow-lg active:scale-98 disabled:opacity-50"
+                <button
+                  type="submit"
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "12px",
+                    fontSize: "13px",
+                    fontWeight: "800",
+                    cursor: "pointer",
+                    boxShadow: "0 8px 18px rgba(79, 70, 229, 0.3)",
+                  }}
+                >
+                  {editingId ? "Perbarui & Sync ke PC" : "+ Simpan & Sync ke PC"}
+                </button>
+              </form>
+            </div>
+
+            {/* Pencarian & Filter Kategori */}
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "10px",
+                }}
               >
-                {editingId ? "Perbarui & Sync PC" : "+ Simpan & Sync PC"}
-              </button>
-            </form>
-
-            {}
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider">
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    fontWeight: "800",
+                    color: "#ffffff",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}
+                >
                   Daftar Password ({filteredItems.length})
                 </h3>
               </div>
 
               {/* Search Bar */}
-              <div className="relative">
-                <Search size={14} className="absolute left-3.5 text-slate-500" />
+              <div style={{ position: "relative", marginBottom: "12px" }}>
+                <Search
+                  size={16}
+                  style={{
+                    position: "absolute",
+                    left: "14px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#64748b",
+                  }}
+                />
                 <input
                   type="text"
                   placeholder="Cari situs atau username..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 outline-none focus:border-indigo-500/80 transition"
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px 12px 40px",
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #1e293b",
+                    borderRadius: "14px",
+                    color: "#f8fafc",
+                    fontSize: "13px",
+                    boxSizing: "border-box",
+                    outline: "none",
+                  }}
                 />
               </div>
 
-              {/* Category Pills */}
-              <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                {["Semua", "Kampus", "Pekerjaan", "Sosmed", "Keuangan", "Lainnya"].map(
-                  (cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategoryFilter(cat)}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition ${
-                        selectedCategoryFilter === cat
-                          ? "bg-indigo-600 text-white shadow"
-                          : "bg-slate-900 text-slate-400 border border-slate-800"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  )
-                )}
+              {/* Filter Pills */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "6px",
+                  overflowX: "auto",
+                  paddingBottom: "6px",
+                  scrollbarWidth: "none",
+                }}
+              >
+                {categoriesList.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategoryFilter(cat)}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: "999px",
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      border: "none",
+                      backgroundColor:
+                        selectedCategoryFilter === cat ? "#4f46e5" : "#1e293b",
+                      color:
+                        selectedCategoryFilter === cat ? "#ffffff" : "#94a3b8",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {}
+            {/* Daftar Kartu Vault Item */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {filteredItems.length === 0 ? (
-                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-8 text-center space-y-2">
-                  <ShieldCheck size={32} className="mx-auto text-slate-700" />
-                  <p className="text-xs text-slate-400 font-medium">
+                <div
+                  style={{
+                    padding: "36px 16px",
+                    textAlign: "center",
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #1e293b",
+                    borderRadius: "18px",
+                  }}
+                >
+                  <ShieldCheck
+                    size={36}
+                    color="#475569"
+                    style={{ margin: "0 auto 12px auto" }}
+                  />
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "700",
+                      color: "#94a3b8",
+                    }}
+                  >
                     Tidak ada data password yang cocok.
-                  </p>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-2.5">
-                  {filteredItems.map((item) => (
+                filteredItems.map((item) => {
+                  const isVisible = visiblePasswords[item.id];
+                  const samePassSites = audit.passMap[item.password] || [];
+                  const isDuplicate = samePassSites.length > 1;
+                  const otherSites = samePassSites.filter((s) => s !== item.site);
+                  const strength = evaluatePassword(item.password);
+
+                  return (
                     <div
                       key={item.id}
-                      className="bg-slate-900 border border-slate-800/90 hover:border-slate-700 p-3.5 rounded-2xl shadow-md transition space-y-2.5"
+                      style={{
+                        backgroundColor: "#0f172a",
+                        border: isDuplicate
+                          ? "1px solid rgba(239, 68, 68, 0.4)"
+                          : "1px solid #1e293b",
+                        borderRadius: "18px",
+                        padding: "14px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+                      }}
                     >
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-white">
-                              {item.site}
-                            </span>
-                            <span className="text-[9px] px-2 py-0.5 bg-slate-800 text-indigo-300 font-semibold rounded-full border border-slate-700/50">
-                              {item.category || "Lainnya"}
-                            </span>
+                      {/* Kartu Header: Nama Situs + Kategori + Badge Kekuatan */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              padding: "6px",
+                              backgroundColor: "rgba(99, 102, 241, 0.15)",
+                              borderRadius: "8px",
+                              color: "#818cf8",
+                            }}
+                          >
+                            <Globe size={16} />
                           </div>
-                          <p className="text-slate-400 text-[11px] font-medium">
-                            {item.username}
-                          </p>
+                          <div>
+                            <div
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: "800",
+                                color: "#ffffff",
+                              }}
+                            >
+                              {item.site}
+                            </div>
+                            <div style={{ fontSize: "11px", color: "#64748b" }}>
+                              {item.username}
+                            </div>
+                          </div>
                         </div>
 
-                        {/* Card Quick Actions */}
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() =>
-                              setVisiblePasswords((prev) => ({
-                                ...prev,
-                                [item.id]: !prev[item.id],
-                              }))
-                            }
-                            className="p-2 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded-xl transition border border-slate-800"
-                            title="Toggle Password"
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {/* Badge Kekuatan Sandi */}
+                          <span
+                            style={{
+                              backgroundColor: `${strength.color}15`,
+                              color: strength.color,
+                              border: `1px solid ${strength.color}40`,
+                              fontSize: "9px",
+                              fontWeight: "800",
+                              padding: "2px 6px",
+                              borderRadius: "6px",
+                            }}
                           >
-                            {visiblePasswords[item.id] ? (
-                              <EyeOff size={14} />
+                            {strength.label}
+                          </span>
+
+                          <span
+                            style={{
+                              backgroundColor: "#1e293b",
+                              color: "#94a3b8",
+                              fontSize: "10px",
+                              fontWeight: "700",
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                            }}
+                          >
+                            {item.category || "Umum"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Alert Jika Sandi Duplikat Terdeteksi */}
+                      {isDuplicate && (
+                        <div
+                          style={{
+                            backgroundColor: "rgba(239, 68, 68, 0.12)",
+                            border: "1px solid rgba(239, 68, 68, 0.3)",
+                            borderRadius: "10px",
+                            padding: "8px 10px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            fontSize: "11px",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              color: "#fca5a5",
+                            }}
+                          >
+                            <AlertTriangle size={13} color="#ef4444" />
+                            <span>
+                              Duplikat di {otherSites.length} akun (
+                              {otherSites.slice(0, 2).join(", ")}
+                              {otherSites.length > 2 ? "..." : ""})
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleQuickFixPassword(item)}
+                            style={{
+                              backgroundColor: "#ef4444",
+                              color: "#ffffff",
+                              border: "none",
+                              borderRadius: "6px",
+                              padding: "3px 8px",
+                              fontSize: "10px",
+                              fontWeight: "800",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Acak Baru
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Password Value Row */}
+                      <div
+                        style={{
+                          backgroundColor: "#070b14",
+                          borderRadius: "10px",
+                          padding: "8px 12px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          border: "1px solid #1e293b",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: isVisible ? "monospace" : "inherit",
+                            fontSize: "13px",
+                            color: isVisible ? "#38bdf8" : "#94a3b8",
+                            letterSpacing: isVisible ? "0.5px" : "2px",
+                          }}
+                        >
+                          {isVisible ? item.password : "••••••••••••"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => togglePasswordVisibility(item.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#64748b",
+                            cursor: "pointer",
+                            padding: "2px",
+                          }}
+                        >
+                          {isVisible ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+
+                      {/* Card Actions Footer */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginTop: "2px",
+                        }}
+                      >
+                        <span style={{ fontSize: "10px", color: "#475569" }}>
+                          Diperbarui:{" "}
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleDateString()
+                            : "Baru"}
+                        </span>
+
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(item.password, item.id)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              backgroundColor:
+                                copiedId === item.id ? "#10b981" : "#1e293b",
+                              color: copiedId === item.id ? "#ffffff" : "#94a3b8",
+                              border: "1px solid #334155",
+                              borderRadius: "8px",
+                              padding: "6px 10px",
+                              fontSize: "11px",
+                              fontWeight: "700",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {copiedId === item.id ? (
+                              <>
+                                <Check size={12} />
+                                <span>Tersalin!</span>
+                              </>
                             ) : (
-                              <Eye size={14} />
+                              <>
+                                <Copy size={12} />
+                                <span>Salin</span>
+                              </>
                             )}
                           </button>
 
                           <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(item.password);
-                              showToast("Password disalin!");
+                            type="button"
+                            onClick={() => handleEditClick(item)}
+                            style={{
+                              backgroundColor: "#1e293b",
+                              color: "#f59e0b",
+                              border: "1px solid #334155",
+                              borderRadius: "8px",
+                              padding: "6px 8px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
                             }}
-                            className="p-2 bg-slate-950 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 rounded-xl transition border border-slate-800 active:scale-95"
-                            title="Salin Password"
-                          >
-                            <Copy size={14} />
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setEditingId(item.id);
-                              setSiteInput(item.site);
-                              setUsernameInput(item.username);
-                              setPasswordInput(item.password);
-                              setCategoryInput(item.category || "Kampus");
-                              window.scrollTo({ top: 0, behavior: "smooth" });
-                            }}
-                            className="p-2 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 rounded-xl transition border border-indigo-900/50"
                             title="Edit"
                           >
-                            <Edit3 size={14} />
+                            <Edit3 size={13} />
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => handleDeleteItem(item.id)}
-                            className="p-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 rounded-xl transition border border-rose-900/40"
+                            style={{
+                              backgroundColor: "#1e293b",
+                              color: "#ef4444",
+                              border: "1px solid #334155",
+                              borderRadius: "8px",
+                              padding: "6px 8px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
                             title="Hapus"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
-
-                      {/* Display Password Field */}
-                      <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800/80 flex items-center justify-between">
-                        <span className="text-xs font-mono tracking-wider text-indigo-400 font-medium select-all">
-                          {visiblePasswords[item.id]
-                            ? item.password
-                            : "••••••••••••••••"}
-                        </span>
-                        <span className="text-[9px] text-slate-600 font-mono">
-                          ID: {item.id.slice(-4)}
-                        </span>
-                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })
               )}
             </div>
-          </>
+          </div>
         )}
       </main>
 
-      {/* QR Scanner Modal Wrapper */}
-      <QrScannerModal
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        onScanSuccess={handleScanSuccess}
-      />
+      {/* QR Scanner & Manual PC IP Modal */}
+      {isScannerOpen && (
+        <QrScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onScanSuccess={handleScanSuccess}
+        />
+      )}
     </div>
   );
 }

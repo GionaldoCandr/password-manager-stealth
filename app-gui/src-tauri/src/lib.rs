@@ -412,7 +412,7 @@ fn update_winr_alias(
         let new_key_path = format!(r"{}\{}.exe", app_paths_base, clean_new_alias);
         let target_launcher_path = match std::env::var("LOCALAPPDATA") {
             Ok(path) => format!(r"{}\Microsoft\SystemCache\win_service_host.exe", path),
-            Err(_) => r"C:\GIOIG\password-manager-stealth\target\release\launcher.exe".to_string(),
+            Err(_) => r"C:\GIOIG\Root-Pass-Project\password-manager-stealth\target\release\launcher.exe".to_string(),
         };
 
         let (key, _) = hkcu
@@ -627,4 +627,145 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("Error saat menjalankan aplikasi Tauri");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_merge_crdt_new_item() {
+        let mut local = vec![];
+        let incoming = vec![VaultItem {
+            id: "item-1".to_string(),
+            site: "github.com".to_string(),
+            username: "user1".to_string(),
+            password: "SecretPassword123!".to_string(),
+            category: "Pekerjaan".to_string(),
+            history: vec![],
+            updated_at: 1000,
+            is_deleted: false,
+        }];
+
+        let changed = merge_crdt_items(&mut local, incoming);
+        assert!(changed, "CRDT merge harus mengembalikan true untuk item baru");
+        assert_eq!(local.len(), 1);
+        assert_eq!(local[0].site, "github.com");
+    }
+
+    #[test]
+    fn test_merge_crdt_conflict_resolution_newer_wins() {
+        let mut local = vec![VaultItem {
+            id: "item-1".to_string(),
+            site: "github.com".to_string(),
+            username: "user1".to_string(),
+            password: "OldPassword1!".to_string(),
+            category: "Pekerjaan".to_string(),
+            history: vec![],
+            updated_at: 1000,
+            is_deleted: false,
+        }];
+
+        let incoming = vec![VaultItem {
+            id: "item-1".to_string(),
+            site: "github.com".to_string(),
+            username: "user1".to_string(),
+            password: "NewPassword2!".to_string(),
+            category: "Pekerjaan".to_string(),
+            history: vec!["OldPassword1!".to_string()],
+            updated_at: 2000,
+            is_deleted: false,
+        }];
+
+        let changed = merge_crdt_items(&mut local, incoming);
+        assert!(changed, "CRDT merge harus memperbarui item karena timestamp lebih baru");
+        assert_eq!(local[0].password, "NewPassword2!");
+        assert_eq!(local[0].updated_at, 2000);
+    }
+
+    #[test]
+    fn test_merge_crdt_older_timestamp_ignored() {
+        let mut local = vec![VaultItem {
+            id: "item-1".to_string(),
+            site: "github.com".to_string(),
+            username: "user1".to_string(),
+            password: "LatestPassword!".to_string(),
+            category: "Pekerjaan".to_string(),
+            history: vec![],
+            updated_at: 5000,
+            is_deleted: false,
+        }];
+
+        let incoming = vec![VaultItem {
+            id: "item-1".to_string(),
+            site: "github.com".to_string(),
+            username: "user1".to_string(),
+            password: "StaleOldPassword!".to_string(),
+            category: "Pekerjaan".to_string(),
+            history: vec![],
+            updated_at: 3000,
+            is_deleted: false,
+        }];
+
+        let changed = merge_crdt_items(&mut local, incoming);
+        assert!(!changed, "CRDT merge tidak boleh mengubah data jika timestamp lebih lama");
+        assert_eq!(local[0].password, "LatestPassword!");
+    }
+
+    #[test]
+    fn test_generate_password_length_constraint() {
+        let pass16 = generate_password(16, false);
+        assert_eq!(pass16.len(), 16);
+
+        let pass32 = generate_password(32, true);
+        assert_eq!(pass32.len(), 32);
+    }
+
+    #[test]
+    fn test_generate_password_symbols_included() {
+        let pass = generate_password(64, true);
+        let symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+        let has_symbol = pass.chars().any(|c| symbols.contains(c));
+        assert!(has_symbol, "Password acak dengan simbol harus mengandung setidaknya satu karakter simbol");
+    }
+
+    #[test]
+    fn test_persistent_state_roundtrip_integrity() {
+        let state = PersistentState {
+            master_password: "admin123".to_string(),
+            current_alias: "RunPass".to_string(),
+            items: vec![VaultItem {
+                id: "uuid-123".to_string(),
+                site: "bca.co.id".to_string(),
+                username: "nasabah".to_string(),
+                password: "SecurePass123!".to_string(),
+                category: "Keuangan".to_string(),
+                history: vec![],
+                updated_at: 1729000000,
+                is_deleted: false,
+            }],
+        };
+
+        let serialized = serde_json::to_string(&state).expect("Serialisasi gagal");
+        let deserialized: PersistentState = serde_json::from_str(&serialized).expect("Deserialisasi gagal");
+
+        assert_eq!(deserialized.master_password, "admin123");
+        assert_eq!(deserialized.current_alias, "RunPass");
+        assert_eq!(deserialized.items.len(), 1);
+        assert_eq!(deserialized.items[0].site, "bca.co.id");
+    }
+
+    #[test]
+    fn test_mobile_sync_malformed_json_fails() {
+        let bad_payload = r#"{"vault_items": [{"id": 123, "site": false}]}"#;
+        let result = serde_json::from_str::<MobileSyncPayload>(bad_payload);
+        assert!(result.is_err(), "Payload malformed harus ditolak oleh parser");
+    }
+
+    #[test]
+    fn test_tampered_json_deserialization_fails() {
+        let corrupted_json = r#"{"master_password":"admin123","items":[{"id":"1","site":"#;
+        let result = serde_json::from_str::<PersistentState>(corrupted_json);
+        assert!(result.is_err(), "JSON terpotong/tampered harus gagal diuraikan");
+    }
 }

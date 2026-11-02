@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "app-gui",
+  "productName": "PcPMSV",
   "version": "0.1.0",
   "identifier": "com.pertamina-foundation.app-gui",
   "build": {
@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "Stealth Password Vault",
-        "width": 800,
-        "height": 600
+        "title": "PcPMSV - Stealth Password Vault",
+        "width": 1050,
+        "height": 720
       }
     ],
     "security": {

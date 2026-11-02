@@ -23,18 +23,45 @@ abstract class BuildTask : DefaultTask() {
 
     @TaskAction
     fun assemble() {
-        val executable = """npm""";
+        val abi = when (target) {
+            "aarch64" -> "arm64-v8a"
+            "armv7" -> "armeabi-v7a"
+            "i686" -> "x86"
+            "x86_64" -> "x86_64"
+            else -> target ?: "arm64-v8a"
+        }
+        val triple = when (target) {
+            "aarch64" -> "aarch64-linux-android"
+            "armv7" -> "armv7-linux-androideabi"
+            "i686" -> "i686-linux-android"
+            "x86_64" -> "x86_64-linux-android"
+            else -> target ?: "aarch64-linux-android"
+        }
+        val profile = if (release == true) "release" else "debug"
+        val rootDir = File(projectDir ?: ".", rootDirRel ?: "../../../")
+        val soSource = File(rootDir, "target/$triple/$profile/libapp_gui_lib.so")
+        val jniDestDir = File(projectDir ?: ".", "src/main/jniLibs/$abi")
+        val jniDestFile = File(jniDestDir, "libapp_gui_lib.so")
+
+        if (soSource.exists()) {
+            jniDestDir.mkdirs()
+            soSource.copyTo(jniDestFile, overwrite = true)
+            logger.lifecycle("==> Copied $triple library to $jniDestFile")
+            return
+        }
+
+        if (jniDestFile.exists()) {
+            logger.lifecycle("==> Using existing $jniDestFile")
+            return
+        }
+
+        // Fallback to tauri cli if source doesn't exist
+        val executable = "npm"
         try {
             runTauriCli(executable)
         } catch (e: Exception) {
             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                // Try different Windows-specific extensions
-                val fallbacks = listOf(
-                    "$executable.exe",
-                    "$executable.cmd",
-                    "$executable.bat",
-                )
-
+                val fallbacks = listOf("$executable.exe", "$executable.cmd", "$executable.bat")
                 var lastException: Exception = e
                 for (fallback in fallbacks) {
                     try {
@@ -46,7 +73,7 @@ abstract class BuildTask : DefaultTask() {
                 }
                 throw lastException
             } else {
-                throw e;
+                throw e
             }
         }
     }
@@ -55,7 +82,7 @@ abstract class BuildTask : DefaultTask() {
         val rootDirRel = rootDirRel ?: throw GradleException("rootDirRel cannot be null")
         val target = target ?: throw GradleException("target cannot be null")
         val release = release ?: throw GradleException("release cannot be null")
-        val args = listOf("run", "--", "tauri", "android", "android-studio-script");
+        val args = listOf("run", "--", "tauri", "android", "android-studio-script")
 
         execOperations.exec {
             workingDir(File(projectDir, rootDirRel))

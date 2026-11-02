@@ -5,22 +5,40 @@ use std::path::PathBuf;
 use std::process::Command;
 use serde::Deserialize;
 
+fn resolve_gui_path() -> PathBuf {
+    let appdata = env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
+    let sys_cache_path = PathBuf::from(appdata)
+        .join("Microsoft")
+        .join("SystemCache")
+        .join("app-gui.exe");
+
+    if sys_cache_path.exists() {
+        return sys_cache_path;
+    }
+
+    if let Ok(current_exe) = env::current_exe() {
+        if let Some(parent) = current_exe.parent() {
+            let neighbor = parent.join("app-gui.exe");
+            if neighbor.exists() {
+                return neighbor;
+            }
+        }
+    }
+
+    let workspace_path = PathBuf::from(r"C:\GIOIG\Root-Pass-Project\password-manager-stealth\target\release\app-gui.exe");
+    if workspace_path.exists() {
+        return workspace_path;
+    }
+
+    PathBuf::from(r"C:\GIOIG\password-manager-stealth\target\release\app-gui.exe")
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     // Jika dipanggil via URI Protocol oleh Browser Extension
     if args.len() > 1 && args[1] == "--background-sync" {
-        let appdata = env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
-        let gui_path = PathBuf::from(appdata)
-            .join("Microsoft")
-            .join("SystemCache")
-            .join("app-gui.exe");
-
-        let final_gui_path = if gui_path.exists() {
-            gui_path
-        } else {
-            PathBuf::from(r"C:\GIOIG\password-manager-stealth\target\release\app-gui.exe")
-        };
+        let final_gui_path = resolve_gui_path();
 
         // Jalankan biner GUI secara silent / background
         let _ = Command::new(final_gui_path)
@@ -47,17 +65,7 @@ fn main() {
     if master_password == valid_password {
         println!("\n[SUCCESS] Autentikasi Berhasil! Membuka Stealth GUI...");
 
-        let appdata = env::var("LOCALAPPDATA").unwrap_or_else(|_| ".".to_string());
-        let gui_path = PathBuf::from(appdata)
-            .join("Microsoft")
-            .join("SystemCache")
-            .join("app-gui.exe");
-
-        let final_gui_path = if gui_path.exists() {
-            gui_path
-        } else {
-            PathBuf::from(r"C:\GIOIG\password-manager-stealth\target\release\app-gui.exe")
-        };
+        let final_gui_path = resolve_gui_path();
 
         let _ = Command::new(final_gui_path).status();
     } else {

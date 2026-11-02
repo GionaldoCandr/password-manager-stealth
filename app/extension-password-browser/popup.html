@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>extension-password-browser</title>
+  <style>
+    :root {
+      --bg-dark: #070b14;
+      --card-bg: #0f172a;
+      --input-bg: #020617;
+      --border-color: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #38bdf8;
+      --accent-blue: #6366f1;
+      --accent-emerald: #10b981;
+      --accent-rose: #f43f5e;
+      --accent-amber: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      width: 330px;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      padding: 14px;
+      font-size: 12px;
+    }
+
+    /* Header Bar */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .brand-icon img {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+
+    .brand-title {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      color: #fff;
+    }
+
+    .brand-subtitle {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .status-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-online {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .status-offline {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--accent-rose);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+
+    /* Cards */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Form Inputs */
+    label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background-color: var(--input-bg);
+      color: #fff;
+      font-size: 11px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      border-color: #6366f1;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.95;
+    }
+
+    .btn-secondary {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      color: var(--text-main);
+      margin-top: 6px;
+    }
+
+    .btn-secondary:hover {
+      background-color: #334155;
+    }
+
+    /* Notification Toast */
+    #status-toast {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      margin-bottom: 10px;
+      display: none;
+      font-weight: 700;
+    }
+
+    .toast-success {
+      background-color: rgba(16, 185, 129, 0.2);
+      border: 1px solid var(--accent-emerald);
+      color: var(--accent-emerald);
+    }
+
+    .toast-error {
+      background-color: rgba(244, 63, 94, 0.2);
+      border: 1px solid var(--accent-rose);
+      color: var(--accent-rose);
+    }
+
+    /* Password Generator & Bar Section */
+    .gen-result {
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: #38bdf8;
+      background: var(--input-bg);
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      word-break: break-all;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .copy-pill {
+      font-size: 9px;
+      font-weight: 700;
+      color: #a5b4fc;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 4px;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    /* Live Password Health Bar */
+    .strength-wrapper {
+      margin-bottom: 8px;
+    }
+
+    .strength-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+
+    .strength-bar-bg {
+      height: 5px;
+      background-color: #1e293b;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .strength-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-emerald);
+      transition: width 0.3s ease, background-color 0.3s ease;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 9px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-color);
+      padding-top: 8px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header with Brand & Live Desktop Status -->
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon">
+        <img src="icons/icon32.png" alt="Logo" />
+      </div>
+      <div>
+        <div class="brand-title">extension-password-browser</div>
+        <div class="brand-subtitle">Stealth Vault Assistant</div>
+      </div>
+    </div>
+    <div id="desktop-status" class="status-badge status-offline">
+      <span class="status-dot"></span>
+      <span id="status-text">Memeriksa...</span>
+    </div>
+  </div>
+
+  <div id="status-toast"></div>
+
+  <!-- PENDING ACCOUNT TO SAVE (Triggered by form submit on page) -->
+  <div id="pending-container" class="card" style="display: none; border-color: rgba(99, 102, 241, 0.4);">
+    <div class="card-title">📥 Kredensial Baru Terdeteksi</div>
+    <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+      Situs: <strong id="pending-site" style="color: #fff;"></strong>
+    </p>
+
+    <label>Token Alias Win+R</label>
+    <input type="text" id="winr-token" placeholder="misal: mypass atau RunPass" value="mypass" />
+
+    <label>Master Password</label>
+    <input type="password" id="master-pass" placeholder="Master Password Vault" />
+
+    <button id="sync-btn" class="btn btn-primary">Otorisasi & Simpan ke RAM</button>
+  </div>
+
+  <!-- QUICK AUTOFILL TOOLS & PASSWORD GENERATOR WITH HEALTH BAR -->
+  <div class="card">
+    <div class="card-title">⚡ Autofill & Generator Sandi</div>
+    
+    <button id="autofill-btn" class="btn btn-primary" style="margin-bottom: 10px;">
+      Isi Kredensial Otomatis
+    </button>
+
+    <div class="gen-result">
+      <span id="gen-pass-text">••••••••••••••••</span>
+      <span id="copy-gen-btn" class="copy-pill">Salin</span>
+    </div>
+
+    <!-- Bar Kekuatan & Kesehatan Sandi -->
+    <div class="strength-wrapper">
+      <div class="strength-header">
+        <span style="color: var(--text-muted);">Kekuatan Sandi:</span>
+        <span id="strength-label" style="color: var(--accent-emerald);">Sangat Kuat (100%)</span>
+      </div>
+      <div class="strength-bar-bg">
+        <div id="strength-bar-fill" class="strength-bar-fill" style="width: 100%;"></div>
+      </div>
+    </div>
+
+    <button id="generate-btn" class="btn btn-secondary">
+      🎲 Acak Password Kuat (16 Karakter)
+    </button>
+  </div>
+
+  <!-- PASSWORD HEALTH CHECKER TOOL -->
+  <div class="card">
+    <div class="card-title">🛡️ Cek Kesehatan Sandi Mandiri</div>
+    <input type="text" id="test-password-input" placeholder="Ketik atau tempel sandi untuk uji..." />
+    <div class="strength-wrapper" id="test-strength-wrapper" style="display: none;">
+      <div class="strength-header">
+        <span style="color: var(--text-muted);">Hasil Analisis:</span>
+        <span id="test-strength-label" style="color: var(--accent-emerald);">-</span>
+      </div>
+      <div class="strength-bar-bg">
+        <div id="test-strength-bar-fill" class="strength-bar-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Port 14201 · Zero Cloud · Volatile RAM Engine
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -16,3 +16,10 @@ __pycache__
 *.dat
 *.log
 storage-parts/
+
+# Mengabaikan kunci kriptografi, file lingkungan, dan rahasia (Zero Secrets in Repo)
+.env
+*.env
+*.key
+*.secret
+secrets/

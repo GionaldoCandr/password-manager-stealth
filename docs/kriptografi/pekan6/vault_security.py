@@ -143,3 +143,4 @@ class SecureVaultService:
         aad = self.build_aad(entry["service_name"], entry["username"])
         decrypted_password = self.aead_engine.decrypt(entry["encrypted_password"], aad=aad)
         return decrypted_password
+

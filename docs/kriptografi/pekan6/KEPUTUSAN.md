@@ -82,3 +82,4 @@ Seluruh parameter diimplementasikan secara eksplisit pada berkas `aead.py` dan `
 - **K3 (15 Poin):** Zero secrets in git repository, kunci dibangkitkan via CSPRNG dan dikelola via environment variable, validasi input ketat bersifat *fail-closed*.
 - **K4 (25 Poin):** 7 skenario pengujian komprehensif (100% lulus), menguji modifikasi ciphertext, modifikasi tag, AAD mismatch, wrong key, edge cases input kosong, dan keunikan nonce.
 - **K5 (10 Poin):** Dokumentasi terstruktur pada `README.md`, panduan demonstrasi 3 menit disiapkan, dan `AI_LOG.md` mencatat seluruh riwayat audit pembuatan kode.
+

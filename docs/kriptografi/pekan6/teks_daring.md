@@ -53,3 +53,4 @@ Dibuat 7 skenario pengujian unit komprehensif pada `docs/kriptografi/pekan6/test
 #### 5. Dokumentasi, Demonstrasi, dan AI_LOG.md (K5 - 10 Poin)
 - `README.md`: Dokumentasi lengkap struktur modul, tabel parameter, log uji pytest, dan panduan demonstrasi 3 menit (lokasi penyimpanan kunci & bahaya *nonce reuse*).
 - `AI_LOG.md`: Log audit transparan perancangan modul, instruksi prompt, verifikasi NIST SP 800-38D, dan pernyataan pemahaman kode.
+

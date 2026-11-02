@@ -155,3 +155,4 @@ class VaultAEADEngine:
         if len(tag) != self.TAG_SIZE_BYTES:
             raise ValueError(f"Panjang tag harus {self.TAG_SIZE_BYTES} byte.")
         return base64.b64encode(nonce + ciphertext + tag).decode("utf-8")
+

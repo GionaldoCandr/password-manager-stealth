@@ -85,8 +85,7 @@ password-manager-stealth/docs/kriptografi/pekan6/test_tugas2.py::test_skenario_7
 
 > **Dokumentasi Tangkap Layar Pengujian:**
 > 
-> <!-- TANGKAP LAYAR HASIL UJI PYTEST DISINI -->
-> ![Bukti Eksekusi Pytest](image.png)
+>![tugas-2](image.png)
 
 ---
 
@@ -95,11 +94,11 @@ password-manager-stealth/docs/kriptografi/pekan6/test_tugas2.py::test_skenario_7
 Berikut adalah panduan materi dan alur bicara saat demonstrasi langsung di hadapan dosen pengampu:
 
 ### Menit 1: Lokasi Penyimpanan Kunci (*Zero Secrets in Repository*)
-- **Tunjukkan Berkas `.gitignore`:** Tunjukkan bahwa berkas `.env`, `*.key`, dan direktori rahasia dikecualikan dari Git.
-- **Tunjukkan Kelas `VaultKeyManager` pada `vault_security.py`:**
-  Jelaskan bahwa kunci dibangkitkan menggunakan CSPRNG sistem (`os.urandom(32)`) dan hanya dibaca dari *Environment Variable* host (`STEALTH_VAULT_MASTER_KEY`) atau diturunkan melalui PBKDF2/HKDF saat runtime. Tidak ada token atau kunci yang tersimpan permanen di repositori kode.
+- **Berkas `.gitignore`:**berkas `.env`, `*.key`, dan direktori rahasia dikecualikan dari Git.
+- **Kelas `VaultKeyManager` pada `vault_security.py`:**
+  kunci dibangkitkan menggunakan CSPRNG sistem (`os.urandom(32)`) dan hanya dibaca dari *Environment Variable* host (`STEALTH_VAULT_MASTER_KEY`) atau diturunkan melalui PBKDF2/HKDF saat runtime. Tidak ada token atau kunci yang tersimpan permanen di repositori kode.
   
-> <!-- TANGKAP LAYAR DEMONSTRASI PENYIMPANAN KUNCI DISINI -->
+> ![bukti env](image-1.png)
 
 ### Menit 2: Bahaya Penggunaan Nonce Berulang (*Nonce Reuse Hazard*)
 - **Jelaskan Konsep Matematis Two-Time Pad:**
@@ -113,3 +112,4 @@ Berikut adalah panduan materi dan alur bicara saat demonstrasi langsung di hadap
 ### Menit 3: Eksekusi Uji & Peran AAD Mencegah *Ciphertext Transplant*
 - **Jalankan Terminal:** Ketik `python docs/kriptografi/pekan6/test_tugas2.py` dan perlihatkan 7 tes sukses (*all green*).
 - **Sorot Skenario 4 (AAD Mismatch):** Jelaskan bahwa meskipun kunci dan ciphertext valid, jika konteks `situs:username` dipindahkan, verifikasi GMAC melempar `InvalidTag` dan proses dekripsi gagal seketika (*fail-closed*).
+

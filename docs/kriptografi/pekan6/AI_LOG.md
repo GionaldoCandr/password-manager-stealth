@@ -22,3 +22,4 @@
 
 ## Pernyataan Pemahaman Mahasiswa
 Saya menyatakan bahwa seluruh kode dan dokumen yang dikumpulkan telah dipahami secara menyeluruh dan saya siap mendemonstrasikan serta menjawab pertanyaan penguji mengenai implementasi AEAD, derivasi kunci HKDF/PBKDF2, bahaya *nonce reuse*, dan pertahanan terhadap *Ciphertext Transplant Attack*.
+

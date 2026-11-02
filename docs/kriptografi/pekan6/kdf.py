@@ -100,3 +100,4 @@ def separate_keys_hkdf(
     auth_key = hkdf_auth.derive(master_secret)
 
     return enc_key, auth_key
+

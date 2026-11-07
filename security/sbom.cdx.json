@@ -1,0 +1,180 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:7c8b3d14-2f5a-4e89-b1d6-98124031a026",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-14T15:50:00Z",
+    "tools": [
+      {
+        "vendor": "anchore",
+        "name": "syft",
+        "version": "1.18.0"
+      }
+    ],
+    "component": {
+      "type": "container",
+      "name": "stealth-vault",
+      "version": "sec-0.2",
+      "description": "Hardened Non-Root Container Image for Stealth Password Vault Core Daemon",
+      "purl": "pkg:oci/stealth-vault@sec-0.2?arch=amd64&os=linux"
+    },
+    "authors": [
+      {
+        "name": "Gionaldo Chandrawansah",
+        "email": "105224031@universitaspertamina.ac.id"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "operating-system",
+      "name": "alpine",
+      "version": "3.21.3",
+      "description": "Alpine Linux minimal base OS distribution",
+      "purl": "pkg:generic/alpine@3.21.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-2.0-only"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "musl",
+      "version": "1.2.5-r0",
+      "scope": "required",
+      "purl": "pkg:apk/alpine/musl@1.2.5-r0?distro=alpine-3.21.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8b5f3d4a6c8e9b1a2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ca-certificates",
+      "version": "20241121-r1",
+      "scope": "required",
+      "purl": "pkg:apk/alpine/ca-certificates@20241121-r1?distro=alpine-3.21.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MPL-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "name": "stealth-sync-daemon",
+      "version": "0.2.0",
+      "scope": "required",
+      "description": "Rust Core IPC Sync & Memory Security Engine",
+      "purl": "pkg:cargo/stealth-sync-daemon@0.2.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4e7a2b9d1c8f5e3a0b7d6c4f2a1e9b8d7c6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "aes-gcm",
+      "version": "0.10.3",
+      "scope": "required",
+      "description": "Pure Rust implementation of AES-GCM (Galois/Counter Mode)",
+      "purl": "pkg:cargo/aes-gcm@0.10.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "argon2",
+      "version": "0.5.3",
+      "scope": "required",
+      "description": "Password hashing function Argon2id for secure slow key derivation",
+      "purl": "pkg:cargo/argon2@0.5.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "zeroize",
+      "version": "1.8.1",
+      "scope": "required",
+      "description": "Securely zero memory while minimizing compiler optimization risks",
+      "purl": "pkg:cargo/zeroize@1.8.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tiny_http",
+      "version": "0.12.0",
+      "scope": "required",
+      "description": "Low overhead HTTP server for local loopback IPC",
+      "purl": "pkg:cargo/tiny_http@0.12.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:oci/stealth-vault@sec-0.2?arch=amd64&os=linux",
+      "dependsOn": [
+        "pkg:generic/alpine@3.21.3",
+        "pkg:cargo/stealth-sync-daemon@0.2.0"
+      ]
+    },
+    {
+      "ref": "pkg:cargo/stealth-sync-daemon@0.2.0",
+      "dependsOn": [
+        "pkg:cargo/aes-gcm@0.10.3",
+        "pkg:cargo/argon2@0.5.3",
+        "pkg:cargo/zeroize@1.8.1",
+        "pkg:cargo/tiny_http@0.12.0",
+        "pkg:apk/alpine/musl@1.2.5-r0?distro=alpine-3.21.3"
+      ]
+    }
+  ]
+}

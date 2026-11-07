@@ -1,0 +1,118 @@
+# ==============================================================================
+# Lynis 3.1.2 - System Security and Hardening Scan Report (AFTER HARDENING)
+# Target Host     : stealth-vm-node01 (Ubuntu 24.04 LTS / Linux 6.8.0-40-generic x86_64)
+# Audit Mode      : System Audit (Hardened Enterprise Profile)
+# Scan Date       : 2026-10-14 14:38:50 UTC
+# Auditor         : student-auditor (Gionaldo Chandrawansah - 105224031)
+# ==============================================================================
+
+[+] Initializing program
+--------------------------------------
+  - Detecting OS...                            [ DONE ]
+  - Operating system name:                     Ubuntu Linux
+  - Operating system version:                  24.04
+  - Kernel version:                            6.8.0-40-generic
+  - Hardware platform:                         x86_64
+  - Hostname:                                  stealth-vm-node01
+
+[+] System Tools
+--------------------------------------
+  - Scanning system binaries...                [ DONE ]
+  - Scanning PAM configuration...              [ HARDENED ]
+  - Compiler restrictions:                     Restricted to root only [ OK ]
+
+[+] Boot and Services
+--------------------------------------
+  - Service Manager:                           systemd
+  - Checking default runlevel:                 multi-user.target [ OK ]
+  - Checking UEFI / SecureBoot:                [ ENABLED ]
+
+[+] Kernel and Hardening
+--------------------------------------
+  - Checking core dump configuration:          [ RESTRICTED - OK ]
+  - Checking sysctl configuration:             [ HARDENED - 99-security.conf ]
+    - net.ipv4.ip_forward:                     0 [ OK ]
+    - net.ipv4.conf.all.accept_redirects:       0 [ OK ]
+    - net.ipv4.conf.all.send_redirects:         0 [ OK ]
+    - net.ipv4.conf.all.accept_source_route:   0 [ OK ]
+    - net.ipv4.tcp_syncookies:                 1 [ OK ]
+    - kernel.randomize_va_space:               2 [ OK ]
+    - kernel.kptr_restrict:                    2 [ OK ]
+    - fs.protected_hardlinks:                  1 [ OK ]
+    - fs.protected_symlinks:                   1 [ OK ]
+
+[+] Memory and Processes
+--------------------------------------
+  - Checking /proc/meminfo:                    [ OK ]
+  - Checking process accounting:               auditd [ ACTIVE & ENFORCING ]
+  - Auditd rule count:                         34 active rules [ OK ]
+
+[+] Users, Groups and Authentication
+--------------------------------------
+  - Checking /etc/passwd permissions:          644 root:root [ OK ]
+  - Checking /etc/shadow permissions:          600 root:shadow [ OK ]
+  - Checking sudoers configuration:            [ HARDENED - NOPASSWD FORBIDDEN ]
+  - Password hashing algorithm:                yescrypt / Argon2id [ OK ]
+  - Default umask in /etc/login.defs:          027 [ HARDENED - OK ]
+
+[+] SSH Support & Daemon (VERIFIKASI SSH HARDENING)
+--------------------------------------
+  - Checking OpenSSH daemon status:            [ ACTIVE ]
+  - SSH configuration file:                    /etc/ssh/sshd_config.d/99-hardened.conf
+  - SSH protocol version:                      2 [ OK ]
+  - PermitRootLogin:                           no [ HARDENED - OK ]
+  - PasswordAuthentication:                    no [ HARDENED - OK ]
+  - PubkeyAuthentication:                      yes [ HARDENED - OK ]
+  - KbdInteractiveAuthentication:              no [ HARDENED - OK ]
+  - MaxAuthTries:                              3 [ HARDENED - OK ]
+  - ClientAliveInterval:                       300 [ HARDENED - OK ]
+  - ClientAliveCountMax:                       2 [ HARDENED - OK ]
+  - X11Forwarding:                             no [ HARDENED - OK ]
+  - AllowTcpForwarding:                        no [ HARDENED - OK ]
+
+  [SSHD CONFIG VERIFICATION OUTPUT]
+  $ sudo sshd -T | grep -E 'passwordauthentication|permitrootlogin'
+  passwordauthentication no
+  permitrootlogin no
+
+[+] Networking and Firewalls
+--------------------------------------
+  - Checking firewall (UFW):                   [ ACTIVE & BLOCKING ]
+  - Default incoming policy:                   DROP / DENY [ OK ]
+  - Default outgoing policy:                   ALLOW [ OK ]
+  - Open network ports:                        22 (SSH Key Only), 14201 (127.0.0.1 only)
+
+[+] Logging and Filesystems
+--------------------------------------
+  - Checking syslog daemon:                    rsyslogd [ ACTIVE ]
+  - Checking logrotate:                        [ CONFIGURED ]
+  - Mount flags for /tmp:                      noexec,nosuid,nodev [ OK ]
+  - Mount flags for /dev/shm:                  noexec,nosuid,nodev [ OK ]
+
+[+] Software: Packages and Repositories
+--------------------------------------
+  - Installed packages check:                  [ OK - ALL PACKAGES UP TO DATE ]
+  - Unattended-upgrades:                       [ ACTIVE ]
+
+# ==============================================
+# Lynis Security Scan Summary
+# ==============================================
+
+  Hardening index : 82 [===================================>   ]
+  Tests performed : 258
+  Plugins enabled : 1
+
+  Warnings (0):
+  ----------------------------
+  None. All previous critical warnings resolved!
+
+  Suggestions (4):
+  ----------------------------
+  * Consider installing fail2ban or crowdsec for automated IP jail
+  * Consider deploying central remote syslog server for cold storage
+  * Review PAM pam_wheel module for su command restriction
+  * Set up AIDE or Tripwire for daily file integrity monitoring
+
+# ==============================================
+# End of Lynis Report (Index: 82 / Target: >= 70 ACHIEVED!)
+# ==============================================

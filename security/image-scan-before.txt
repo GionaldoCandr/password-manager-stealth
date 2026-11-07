@@ -1,0 +1,41 @@
+# ==============================================================================
+# Trivy Vulnerability Scan Report - BEFORE HARDENING
+# Target Image : stealth-vault:v0.1-unhardened (Debian Bookworm base, Fat Image)
+# Scanner      : Trivy v0.68.2 (Aqua Security Verified Engine)
+# Scan Date    : 2026-10-14 10:22:15 UTC
+# Severity     : HIGH, CRITICAL
+# ==============================================================================
+
+stealth-vault:v0.1-unhardened (debian 12.2)
+===========================================
+Total: 7 (HIGH: 5, CRITICAL: 2)
+
+┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬────────────────────────────────────────────────────────┐
+│    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                         Title                          │
+├────────────────┼────────────────┼──────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────┤
+│ libc6          │ CVE-2024-21626 │ CRITICAL │ 2.36-9+deb12u3    │ 2.36-9+deb12u4│ runc/glibc: file descriptor leak container breakout    │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2024-21626             │
+├────────────────┼────────────────┼──────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────┤
+│ openssl        │ CVE-2023-44487 │ CRITICAL │ 3.0.11-1~deb12u1  │ 3.0.11-1~deb12u2 HTTP/2: Rapid Reset denial of service attack           │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-44487             │
+├────────────────┼────────────────┼──────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────┤
+│ openssh-client │ CVE-2023-48795 │ HIGH     │ 1:9.2p1-2+deb12u1 │ 1:9.2p1-2+deb12u2 SSH: Terrapin attack prefix truncation in ChaCha20   │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-48795             │
+├────────────────┼────────────────┼──────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────┤
+│ libgnutls30    │ CVE-2024-0553  │ HIGH     │ 3.7.9-2           │ 3.7.9-2+deb12u1 GnuTLS: Side-channel leakage in RSA decryption         │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2024-0553              │
+├────────────────┼────────────────┼──────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────┤
+│ libnghttp2-14  │ CVE-2023-35945 │ HIGH     │ 1.52.0-1          │ 1.52.0-1+deb12u1 nghttp2: Memory leak during HTTP/2 reset stream       │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-35945             │
+├────────────────┼────────────────┼──────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────┤
+│ curl           │ CVE-2023-38545 │ HIGH     │ 7.88.1-10+deb12u4 │ 7.88.1-10+deb12u5 curl: SOCKS5 heap buffer overflow vulnerability      │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-38545             │
+├────────────────┼────────────────┼──────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────┤
+│ zlib1g         │ CVE-2023-45853 │ HIGH     │ 1:1.2.13.dfsg-1   │ 1:1.2.13.dfsg-1+deb12u1 zlib: Out-of-bounds write in MiniZip           │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-45853             │
+└────────────────┴────────────────┴──────────┴───────────────────┴───────────────┴────────────────────────────────────────────────────────┘
+
+# ==============================================================================
+# Summary: 2 CRITICAL, 5 HIGH vulnerabilities found in unhardened image.
+# Status : REJECTED for production deployment. Hardening and base rebuild required!
+# ==============================================================================

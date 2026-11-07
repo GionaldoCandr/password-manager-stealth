@@ -1,0 +1,58 @@
+# Docker Compose Hardened Specification for Stealth Password Vault
+# Memenuhi Seluruh Standar Hardening Container:
+# 1. Non-root user (1001:1001)
+# 2. Drop all Linux capabilities (cap_drop: ALL)
+# 3. No new privileges prevention (security_opt: no-new-privileges:true)
+# 4. Read-only root filesystem (read_only: true) dengan tmpfs terisolasi
+# 5. Port tidak dipublikasikan ke host publik (hanya loopback 127.0.0.1)
+
+services:
+  stealth-daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: stealth-vault:sec-0.2
+    container_name: stealth-sync-daemon
+    restart: unless-stopped
+    
+    # 1. Jalankan proses sebagai pengguna non-root
+    user: "1001:1001"
+    
+    # 2. Sistem berkas root hanya-baca (mencegah penulisan malware/tampering ke container)
+    read_only: true
+    
+    # 3. Alokasikan tmpfs sementara di RAM dengan batasan noexec & nosuid
+    tmpfs:
+      - /tmp:size=32M,mode=1777,noexec,nosuid,nodev
+      - /app/tmp:size=16M,mode=1700,noexec,nosuid,nodev
+    
+    # 4. Batasi seluruh Linux Kernel Capabilities
+    cap_drop:
+      - ALL
+    
+    # 5. Cegah eskalasi hak istimewa (privilege escalation)
+    security_opt:
+      - no-new-privileges:true
+    
+    # 6. Alokasi sumber daya ketat (DoS Mitigation - R-09)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 128M
+        reservations:
+          cpus: '0.10'
+          memory: 32M
+    
+    # 7. Port hanya diikat ke loopback lokal 127.0.0.1 (TIDAK DIPUBLIKASIKAN KE PUBLIK)
+    ports:
+      - "127.0.0.1:14201:14201"
+    
+    # 8. Jaringan internal tertutup
+    networks:
+      - stealth-internal
+
+networks:
+  stealth-internal:
+    driver: bridge
+    internal: true

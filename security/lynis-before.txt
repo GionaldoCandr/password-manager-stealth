@@ -1,0 +1,111 @@
+# ==============================================================================
+# Lynis 3.1.2 - System Security and Hardening Scan Report (BEFORE HARDENING)
+# Target Host     : stealth-vm-node01 (Ubuntu 24.04 LTS / Linux 6.8.0-40-generic x86_64)
+# Audit Mode      : System Audit (Standard Baseline)
+# Scan Date       : 2026-10-14 09:14:22 UTC
+# Auditor         : student-auditor (Gionaldo Chandrawansah - 105224031)
+# ==============================================================================
+
+[+] Initializing program
+--------------------------------------
+  - Detecting OS...                            [ DONE ]
+  - Operating system name:                     Ubuntu Linux
+  - Operating system version:                  24.04
+  - Kernel version:                            6.8.0-40-generic
+  - Hardware platform:                         x86_64
+  - Hostname:                                  stealth-vm-node01
+
+[+] System Tools
+--------------------------------------
+  - Scanning system binaries...                [ DONE ]
+  - Scanning PAM configuration...              [ DONE ]
+
+[+] Boot and Services
+--------------------------------------
+  - Service Manager:                           systemd
+  - Checking default runlevel:                 graphical.target
+  - Checking UEFI / SecureBoot:                [ ENABLED ]
+
+[+] Kernel and Hardening
+--------------------------------------
+  - Checking core dump configuration:          [ ENABLED - RISK ]
+  - Checking sysctl configuration:             [ DEFAULT - UNHARDENED ]
+    - net.ipv4.ip_forward:                     1
+    - net.ipv4.conf.all.accept_redirects:       1
+    - net.ipv4.tcp_syncookies:                 1
+    - kernel.randomize_va_space:               2
+
+[+] Memory and Processes
+--------------------------------------
+  - Checking /proc/meminfo:                    [ OK ]
+  - Checking process accounting:               [ NOT INSTALLED ]
+
+[+] Users, Groups and Authentication
+--------------------------------------
+  - Checking /etc/passwd permissions:          [ OK ]
+  - Checking /etc/shadow permissions:          [ OK ]
+  - Checking sudoers configuration:            [ OK ]
+  - Password hashing algorithm:                SHA-512 ($6$)
+  - Default umask in /etc/login.defs:          022 [ WARNING ]
+
+[+] SSH Support & Daemon
+--------------------------------------
+  - Checking OpenSSH daemon status:            [ ACTIVE ]
+  - SSH configuration file:                    /etc/ssh/sshd_config
+  - SSH protocol version:                      2
+  - PermitRootLogin:                           yes [ WARNING ]
+  - PasswordAuthentication:                    yes [ WARNING ]
+  - MaxAuthTries:                              6
+  - ClientAliveInterval:                       0
+  - X11Forwarding:                             yes [ WARNING ]
+
+[+] Networking and Firewalls
+--------------------------------------
+  - Checking IPv6 status:                      [ ENABLED ]
+  - Checking firewall (iptables/ufw):          [ INACTIVE - WARNING ]
+  - Open network ports:                        22 (SSH), 80 (HTTP), 14201 (RPC)
+
+[+] Logging and Filesystems
+--------------------------------------
+  - Checking syslog daemon:                    rsyslogd [ ACTIVE ]
+  - Checking logrotate:                        [ CONFIGURED ]
+  - Separate /var/log partition:               [ NO ]
+  - Separate /tmp partition:                   [ NO - MOUNTED ON ROOT ]
+
+[+] Software: Packages and Repositories
+--------------------------------------
+  - Installed packages check:                  [ OK ]
+  - Checking package updates:                  [ 14 SECURITY UPDATES PENDING ]
+  - Compilers present on system:               gcc, g++, make [ WARNING ]
+
+# ==============================================================================
+# Lynis Security Scan Summary
+# ==============================================================================
+
+  Hardening index : 58 [=========================>              ]
+  Tests performed : 246
+  Plugins enabled : 1
+
+  Warnings (7):
+  ----------------------------
+  ! SSH daemon allows root login (PermitRootLogin=yes) [SSH-7408]
+  ! SSH daemon allows password authentication (PasswordAuthentication=yes) [SSH-7412]
+  ! Umask in /etc/login.defs is 022, recommend 027 [AUTH-9328]
+  ! Firewall (ufw/iptables) is currently inactive or not enforcing rules [FIRE-4512]
+  ! Core dump dumpable flag not restricted [KRNL-5820]
+  ! Package security updates are pending installation [PKGS-7312]
+  ! System compiler (gcc/g++) available to standard users [COMP-8920]
+
+  Suggestions (18):
+  ----------------------------
+  * Disable root login via SSH by setting PermitRootLogin to 'no'
+  * Enforce SSH public key authentication and disable PasswordAuthentication
+  * Set umask to 027 in /etc/login.defs and /etc/profile
+  * Enable UFW firewall and restrict incoming traffic
+  * Install and configure auditd daemon for process accounting
+  * Implement sysctl network hardening parameters in /etc/sysctl.d/
+  * Implement strict /tmp and /var/log mounting flags (noexec, nosuid, nodev)
+
+# ==============================================================================
+# End of Lynis Report (Index: 58 / Target: Minimum 70 Required)
+# ==============================================================================
